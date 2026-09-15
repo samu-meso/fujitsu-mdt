@@ -1,0 +1,17 @@
+import {test,expect} from '@playwright/test'
+
+test('Supabase login, CRUD, mappa, allegati e mobile',async({page})=>{
+  test.skip(!process.env.E2E_EMAIL||!process.env.E2E_PASSWORD||!process.env.VITE_SUPABASE_URL,'Configura un progetto Supabase di test e le credenziali E2E_*; mai produzione.')
+  const errors=[];page.on('pageerror',e=>errors.push(e.message))
+  const suffix=Date.now(),dossierTitle=`Test fascicolo ${suffix}`,reportTitle=`Test segnalazione ${suffix}`
+  await page.goto('/');await page.getByLabel('Email',{exact:true}).fill(process.env.E2E_EMAIL);await page.getByLabel('Password',{exact:true}).fill(process.env.E2E_PASSWORD);await page.getByRole('button',{name:'Accedi al tuo spazio'}).click()
+  await expect(page.getByRole('heading',{name:'Mappa',exact:true})).toBeVisible();await page.reload();await expect(page.getByRole('heading',{name:'Mappa',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Fascicoli',exact:true}).click();await page.getByRole('button',{name:'Nuovo fascicolo'}).click();await page.getByLabel('Titolo',{exact:true}).fill(dossierTitle);await page.getByLabel('Contenuto del fascicolo').fill('Documento di test.');await page.getByRole('button',{name:'Salva fascicolo'}).click()
+  await expect(page.getByRole('heading',{name:dossierTitle})).toBeVisible();await page.getByRole('button',{name:'Modifica'}).click();await page.locator('dialog select[name=status]').selectOption('aperto');await page.getByRole('button',{name:'Salva fascicolo'}).click();await expect(page.locator('dialog .status')).toHaveText('aperto');await page.getByRole('button',{name:'Chiudi'}).click()
+  await page.getByRole('button',{name:'Segnalazioni',exact:true}).click();await page.getByRole('button',{name:'Nuova segnalazione'}).click();await page.getByLabel('Titolo',{exact:true}).fill(reportTitle);await page.getByLabel('Descrizione').fill('Osservazione del progetto Supabase di test.');await page.getByText('Posizione e fascicolo collegato',{exact:true}).click();await page.getByLabel('Fascicolo collegato').selectOption({label:await page.getByLabel('Fascicolo collegato').locator('option').filter({hasText:dossierTitle}).textContent()});await page.getByRole('button',{name:'Salva segnalazione'}).click()
+  await page.locator('dialog input[type=file]').setInputFiles({name:'prova.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aM1sAAAAASUVORK5CYII=','base64')});await expect(page.locator('.attachment strong')).toHaveText('prova.png')
+  await page.getByRole('button',{name:'Elimina',exact:true}).click();await page.getByRole('button',{name:'Conferma eliminazione'}).click();await expect(page.locator('dialog')).toHaveCount(0)
+  await page.getByRole('button',{name:'Fascicoli',exact:true}).click();await page.getByLabel('Cerca').fill(dossierTitle);await page.locator('.archive-card').click();await page.getByRole('button',{name:'Elimina',exact:true}).click();await page.getByRole('button',{name:'Conferma eliminazione'}).click()
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Mappa',exact:true}).click();await expect(page.locator('.leaflet-map')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+  await page.getByRole('button',{name:'Menu account'}).click();await page.getByRole('button',{name:'Esci dall’account'}).click();await expect(page.getByRole('heading',{name:'Bentornato.'})).toBeVisible();expect(errors).toEqual([])
+})

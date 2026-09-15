@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isAllowedOrigin } from './origin.js'
 
 const response=(body,status=200)=>Response.json(body,{status})
 function validSignature(bytes,mime){
@@ -8,7 +9,7 @@ function validSignature(bytes,mime){
   return mime==='application/pdf'&&new TextDecoder().decode(bytes.slice(0,5))==='%PDF-'
 }
 export async function POST(request){
-  if(process.env.APP_ORIGIN&&request.headers.get('origin')!==process.env.APP_ORIGIN)return response({error:'Origine non consentita.'},403)
+  if(!isAllowedOrigin(request.headers.get('origin')))return response({error:'Origine non consentita.'},403)
   const url=process.env.VITE_SUPABASE_URL,anon=process.env.VITE_SUPABASE_ANON_KEY,key=process.env.SUPABASE_SERVICE_ROLE_KEY
   if(!url||!anon||!key)return response({error:'Configurazione Supabase incompleta.'},500)
   const token=request.headers.get('authorization')?.replace(/^Bearer\s+/i,'');if(!token)return response({error:'Sessione mancante.'},401)

@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
+import { isAllowedOrigin } from './origin.js'
 
 const json=(response,status,body)=>response.status(status).json(body)
-const allowedOrigin=()=>process.env.APP_ORIGIN
 
 export default async function handler(request,response){
   if(!['GET','POST','PATCH'].includes(request.method))return json(response,405,{error:'Metodo non consentito.'})
-  if(request.method!=='GET'&&allowedOrigin()&&request.headers.origin!==allowedOrigin())return json(response,403,{error:'Origine non consentita.'})
+  if(request.method!=='GET'&&!isAllowedOrigin(request.headers.origin))return json(response,403,{error:'Origine non consentita.'})
   const url=process.env.VITE_SUPABASE_URL,anon=process.env.VITE_SUPABASE_ANON_KEY,service=process.env.SUPABASE_SERVICE_ROLE_KEY
   if(!url||!anon||!service)return json(response,500,{error:'Configurazione Supabase incompleta.'})
   const token=request.headers.authorization?.replace(/^Bearer\s+/i,'');if(!token)return json(response,401,{error:'Sessione mancante.'})

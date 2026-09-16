@@ -13,6 +13,25 @@ Applicazione privata e minimale per un piccolo gruppo di radioamatori: mappa Lea
 
 Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Funzioni della mappa
+
+- **La mia posizione** attiva il GPS del dispositivo con il permesso del browser. Il punto blu si aggiorna durante gli spostamenti e il cerchio mostra la precisione stimata. **Ferma posizione** interrompe il rilevamento; anche uscire dalla pagina Mappa interrompe il GPS. La posizione resta nel browser e non viene salvata in Supabase né condivisa con il gruppo. Richiede HTTPS o localhost.
+- **Presidi** mostra/nasconde quattro sedi permanenti nella città di Reggio Emilia. Ogni popup contiene indirizzo, fonte ufficiale e collegamento alle indicazioni. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
+- I **ping** spariscono dalla mappa esattamente 48 ore dopo `createdAt`, anche mentre la pagina è aperta. Modificare un ping o la data dell'evento non prolunga la durata. I report rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Non serve una nuova migrazione SQL o un cron di cancellazione.
+
+Presidi verificati il 16 settembre 2026, dati in [emergencyBases.ts](src/emergencyBases.ts):
+
+| Presidio | Indirizzo ufficiale | Fonte |
+| --- | --- | --- |
+| Comando Vigili del fuoco | Via della Canalina, 8 | [Corpo Nazionale VVF](https://www.vigilfuoco.it/sedi-vvf/comando-vvf-di-reggio-emilia) |
+| Croce Rossa — Comitato di Reggio Emilia | Via della Croce Rossa, 1 | [CRI Reggio Emilia](https://www.cri.re.it/contatti/) |
+| Croce Verde — Pubblica Assistenza | Via della Croce Verde, 3 | [Croce Verde Reggio Emilia](https://www.croceverde.re.it/contatti/) |
+| Pronto soccorso — Santa Maria Nuova | Viale Risorgimento, 80, fabbricato E, piano 0 | [Guida regionale ai servizi sanitari](https://guidaservizi.fascicolo-sanitario.it/dettaglio/luogo/3155344/3152900) |
+
+Le coordinate derivano dai punti dei presidi OpenStreetMap e, per Croce Verde, dalla mappa incorporata nella sua pagina Contatti. Per il pronto soccorso è stato verificato il nodo OSM `emergency_ward_entrance` da via Cesare Beccaria. La ricerca è limitata alla città: non include le sedi degli altri comuni della provincia.
+
+`npm run test:map` esegue quattro test browser isolati con backend e GPS simulati: presidi/ping/storico, aggiornamento e stop GPS/permesso negato, scadenza senza reload e layout mobile. Non richiede credenziali E2E e non modifica dati reali.
+
 ## 1. Creare il progetto Supabase
 M7VRa54Czcuv$As
 password db

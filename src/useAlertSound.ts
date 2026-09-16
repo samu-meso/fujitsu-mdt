@@ -19,29 +19,54 @@ export function useAlertSound(id:string|undefined,kind:Kind|undefined){
       oscillator.start(start);oscillator.stop(start+0.2)
     })
   },[])
-  const unlock=useCallback(async()=>{
-    try{
-      context.current??=new AudioContext()
-      if(context.current.state==='suspended')await context.current.resume()
-      if(context.current.state!=='running')return
-      setReady(true)
-      if(pending.current&&!played.current.has(pending.current.id)){
-        played.current.add(pending.current.id);tone(pending.current.kind);pending.current=null
-      }
-    }catch{/* Visual alerts remain available if audio is unsupported or blocked. */}
+  const flush=useCallback(()=>{
+    if(context.current?.state!=='running')return
+    setReady(true)
+    const alert=pending.current
+    if(alert&&!played.current.has(alert.id)){
+      tone(alert.kind);played.current.add(alert.id);pending.current=null
+    }
   },[tone])
+  const unlock=useCallback(()=>{
+    try{
+      const Constructor=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext
+      if(!Constructor)return Promise.resolve()
+      if(!context.current||context.current.state==='closed'){
+        const audio=new Constructor();context.current=audio
+        audio.onstatechange=()=>{if(context.current===audio){setReady(audio.state==='running');flush()}}
+      }
+      const audio=context.current
+      if(audio.state==='running'){flush();return Promise.resolve()}
+      setReady(false)
+      // Start an actual one-frame silent buffer inside the touch/click handler.
+      // Calling resume alone, or starting playback after awaiting it, fails on some iPhones.
+      if(audio.createBufferSource&&audio.createBuffer){
+        const source=audio.createBufferSource();source.buffer=audio.createBuffer(1,1,audio.sampleRate||44100)
+        source.connect(audio.destination);source.onended=()=>source.disconnect();source.start(0)
+      }
+      return audio.resume().then(()=>{if(context.current===audio)flush()}).catch(()=>{if(context.current===audio)setReady(false)})
+    }catch{return Promise.resolve()}
+  },[flush])
   useEffect(()=>{
     const activate=()=>{void unlock()}
-    document.addEventListener('pointerdown',activate,true);document.addEventListener('keydown',activate,true)
+    // Mobile touch activation is granted at touchend/click, not necessarily pointerdown.
+    const events=['touchend','click','pointerup','keydown']
+    events.forEach(event=>document.addEventListener(event,activate,true))
+    const restore=()=>{if(document.visibilityState==='visible'&&context.current)activate()}
+    document.addEventListener('visibilitychange',restore);window.addEventListener('focus',restore)
     if(navigator.userActivation?.hasBeenActive)activate()
-    return()=>{document.removeEventListener('pointerdown',activate,true);document.removeEventListener('keydown',activate,true);void context.current?.close();context.current=null}
+    return()=>{
+      events.forEach(event=>document.removeEventListener(event,activate,true))
+      document.removeEventListener('visibilitychange',restore);window.removeEventListener('focus',restore)
+      const audio=context.current;context.current=null
+      if(audio){audio.onstatechange=null;void audio.close().catch(()=>{})}
+    }
   },[unlock])
   useEffect(()=>{
     pending.current=id&&kind&&!played.current.has(id)?{id,kind}:null
-    if(pending.current&&context.current?.state==='running'){
-      played.current.add(pending.current.id);tone(pending.current.kind);pending.current=null
-    }
-  },[id,kind,tone])
+    if(context.current?.state==='running')flush()
+    else if(pending.current&&context.current)void unlock()
+  },[id,kind,flush,unlock])
   async function preview(type:Kind){await unlock();tone(type)}
   return {ready,unlock,preview}
 }

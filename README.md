@@ -15,6 +15,8 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Alert nel portale
 
+Su mobile l'audio viene sbloccato alla fine del tocco o al clic, inizializzando l'uscita audio nel gesto. È supportato anche `webkitAudioContext` e il ripristino del contesto interrotto. Il pannello Alert mostra **Suoni attivi** oppure il pulsante **Attiva suoni**; un alert ricevuto durante un blocco resta in attesa dello sblocco.
+
 Gli avvisi usano un suono breve a due note; le emergenze una sequenza di sei toni alternati. Ogni alert suona una volta, senza ripetersi a ogni aggiornamento. Il pannello Alert contiene due pulsanti di prova. L'audio si abilita dopo un'interazione con il portale; se bloccato dal browser, nella finestra ricevuta è disponibile **Attiva suoni**. Il cerchio blu GPS rappresenta la precisione del dispositivo; il cerchio tratteggiato HQ rappresenta il raggio di **25 metri**.
 
 Il pulsante **Alert** elenca gli altri membri online e permette di inviare un'emergenza o un avviso con un messaggio. Funziona in tutte le pagine e senza GPS. Online significa avere il portale visibile; ogni scheda ha una sessione distinta, aggiornata ogni 10 secondi, che scade dopo 45 secondi se disconnessa. Nascondere o chiudere la pagina rimuove quella sessione.

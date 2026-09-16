@@ -22,7 +22,7 @@ export default function PortalAlerts({userId}:{userId:string}){
     <dialog ref={composer} className="detail-dialog alert-dialog" aria-label="Invia alert"><div className="alert-dialog-heading"><h2><Bell size={20}/>Invia un alert</h2><button className="icon-button" aria-label="Chiudi alert" onClick={()=>composer.current?.close()}><X size={20}/></button></div><p className="muted">{members.length} {members.length===1?'altro membro online':'altri membri online'} · GPS non necessario</p>
       {error&&<p className="error-banner" role="alert">{error}</p>}
       {notice&&<p className="alert-success" role="status">{notice}</p>}
-      <div className="alert-sound-tests"><button type="button" className="text-button" onClick={()=>void preview('info')}>Prova suono avviso</button><button type="button" className="text-button" onClick={()=>void preview('emergency')}>Prova suono emergenza</button></div>
+      {!ready&&<button type="button" className="button secondary" onClick={()=>void unlock()}>Attiva suoni</button>}<p className="hint" role="status">{ready?'Suoni attivi':'Tocca Attiva suoni per abilitare i suoni'}</p><div className="alert-sound-tests"><button type="button" className="text-button" onClick={()=>void preview('info')}>Prova suono avviso</button><button type="button" className="text-button" onClick={()=>void preview('emergency')}>Prova suono emergenza</button></div>
       <form className="detail-form" onSubmit={async e=>{
         e.preventDefault();setBusy(true);setSendError('');setNotice('')
         try{await send(recipient,kind,message);setNotice('Alert inviato al destinatario.');setMessage('')}catch(e){setSendError((e as Error).message)}finally{setBusy(false)}

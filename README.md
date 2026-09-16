@@ -20,7 +20,7 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato alle comuni mappe stradali e coerente con il resto dell'app. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps.
 
 - **La mia posizione** attiva il GPS e condivide il punto con il nome agli utenti attivi del portale. Il cerchio mostra la precisione stimata. **Segui GPS** mantiene la mappa centrata durante gli spostamenti. **Ferma posizione** o uscire dalla pagina Mappa interrompe il rilevamento e rimuove il punto condiviso. Gli aggiornamenti del gruppo arrivano ogni 5 secondi; una posizione disconnessa scompare entro circa 50 secondi. Supabase conserva solo l'ultima posizione, senza storico degli spostamenti. Richiede HTTPS o localhost e la migrazione `20260916000100_live_locations.sql`.
-- **Presidi** mostra/nasconde quattro sedi permanenti nella città di Reggio Emilia. Ogni popup contiene indirizzo, fonte ufficiale e collegamento alle indicazioni. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
+- **Presidi** mostra/nasconde quattro sedi di soccorso e **HQ**, in Via Marco Emilio Lepido 4 a Reggio Emilia. I marker usano icone dedicate e colori coerenti con la legenda. HQ è geolocalizzato sul [civico OpenStreetMap](https://www.openstreetmap.org/node/7200791813). Ogni popup contiene indirizzo e indicazioni; per i soccorsi è presente la fonte ufficiale. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
 - Cliccare sul punto di un utente mostra la distanza in linea d'aria dalla propria posizione e una linea tratteggiata. La distanza si aggiorna con il proprio GPS e con gli aggiornamenti del gruppo ogni 5 secondi. Un secondo clic sullo stesso utente nasconde la distanza. Serve avere la propria posizione attiva.
 - Le **emergenze** offrono la durata sulla mappa: 24 ore, 48 ore (predefinita) o permanente. Le ore partono da `createdAt`; modificare testo o data dell'evento non riavvia il conteggio. La durata si può cambiare anche in modifica. Gli altri ping durano 48 ore. I report scaduti rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Applicare anche la migrazione `20260916000300_report_duration.sql`.
 
@@ -35,7 +35,7 @@ Presidi verificati il 16 settembre 2026, dati in [emergencyBases.ts](src/emergen
 
 Le coordinate derivano dai punti dei presidi OpenStreetMap e, per Croce Verde, dalla mappa incorporata nella sua pagina Contatti. Per il pronto soccorso è stato verificato il nodo OSM `emergency_ward_entrance` da via Cesare Beccaria. La ricerca è limitata alla città: non include le sedi degli altri comuni della provincia.
 
-`npm run test:map` esegue quattro test browser isolati con backend e GPS simulati: presidi/ping/storico, aggiornamento e stop GPS/permesso negato, scadenza senza reload e layout mobile. Non richiede credenziali E2E e non modifica dati reali.
+`npm run test:map` esegue test browser isolati con backend e GPS simulati: presidi/HQ/ping/storico, condivisione e distanza GPS, gestione dei clic sovrapposti, durate delle emergenze e layout mobile. Non richiede credenziali E2E e non modifica dati reali.
 
 ## 1. Creare il progetto Supabase
 M7VRa54Czcuv$As

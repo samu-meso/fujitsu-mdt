@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import type {Report,ReportType} from './types'
 import {date} from './api'
 import {emergencyBases} from './emergencyBases'
+import {baseIconSvg} from './baseIcons'
 import {pingExpiresAt} from './pings'
 import {useLiveLocation} from './useLiveLocation'
 import {mapZones} from './mapZones'
@@ -88,18 +89,18 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     baseLayer.current?.clearLayers()
     if(!showBases)return
     emergencyBases.forEach(base=>{
-      const icon=L.divIcon({className:'base-marker',html:`<span class="base-pin ${base.category}">${base.symbol}</span>`,iconSize:[34,34],iconAnchor:[17,17]})
+      const icon=L.divIcon({className:'base-marker',html:`<span class="base-pin ${base.category}">${baseIconSvg(base.category)}</span>${base.category==='hq'?'<span class="hq-marker-label">HQ</span>':''}`,iconSize:[40,48],iconAnchor:[20,44],popupAnchor:[0,-38]})
       const popup=document.createElement('div');popup.className='map-popup base-popup'
       const title=document.createElement('strong');title.textContent=base.name
       const address=document.createElement('p');address.textContent=`${base.address}, Reggio Emilia`
       popup.append(title,address)
       if(base.details){const details=document.createElement('small');details.textContent=base.details;popup.append(details)}
       const links=document.createElement('div');links.className='base-popup-links'
-      for(const [label,url] of [['Fonte ufficiale',base.sourceUrl],['Indicazioni',`https://www.google.com/maps/dir/?api=1&destination=${base.latitude},${base.longitude}`]]){
+      for(const [label,url] of [[base.category==='hq'?'Posizione su OpenStreetMap':'Fonte ufficiale',base.sourceUrl],['Indicazioni',`https://www.google.com/maps/dir/?api=1&destination=${base.latitude},${base.longitude}`]]){
         const link=document.createElement('a');link.textContent=label;link.href=url;link.target='_blank';link.rel='noopener noreferrer';links.append(link)
       }
       popup.append(links)
-      L.marker([base.latitude,base.longitude],{icon,alt:base.name,title:base.label,zIndexOffset:100}).bindPopup(popup).addTo(baseLayer.current!)
+      L.marker([base.latitude,base.longitude],{icon,alt:base.name,title:base.label,zIndexOffset:100,bubblingMouseEvents:false}).bindPopup(popup).addTo(baseLayer.current!)
     })
   },[showBases])
 
@@ -156,7 +157,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       <button className="map-center" aria-label={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} title={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} onClick={()=>{if(!map.current)return;if(location)map.current.setView([location.latitude,location.longitude],16);else resetCity(map.current)}}><LocateFixed size={20}/></button>
       <div className="map-legend"><span><i className="dot blue"/>Scansione frequenze</span><span><i className="dot red"/>Emergenza</span></div>
     </div>
-    {showBases&&<div className="bases-legend" aria-label="Legenda presidi">{emergencyBases.map(base=><span key={base.id}><i className={`base-key ${base.category}`}>{base.symbol}</i>{base.label}</span>)}</div>}
+    {showBases&&<div className="bases-legend" aria-label="Legenda presidi">{emergencyBases.map(base=><span key={base.id}><i className={`base-key ${base.category}`} dangerouslySetInnerHTML={{__html:baseIconSvg(base.category)}}/>{base.label}</span>)}</div>}
     {showZones&&<div className="zones-legend" aria-label="Legenda zone">{mapZones.map(zone=><span key={zone.id}><i style={{backgroundColor:zone.color}}/>{zone.name}</span>)}<small>Settori indicativi dell’area urbana</small></div>}
   </div>
 }

@@ -49,12 +49,16 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
 
 test('presidi permanenti e ping scaduti con storico conservato',async({page})=>{
   await prepare(page)
-  await expect(page.locator('.base-marker')).toHaveCount(4)
+  await expect(page.locator('.base-marker')).toHaveCount(5)
+  await page.getByTitle('HQ',{exact:true}).click()
+  await expect(page.locator('.base-popup')).toContainText('Via Marco Emilio Lepido, 4')
+  await expect(page.locator('.base-popup a').first()).toHaveAttribute('href','https://www.openstreetmap.org/node/7200791813')
+  await page.locator('.leaflet-popup-close-button').click()
   await expect(page.locator('.map-zone')).toHaveCount(4)
   await expect(page.locator('.zone-label')).toHaveCount(4)
   await page.getByRole('button',{name:'Zone',exact:true}).click()
   await expect(page.locator('.map-zone')).toHaveCount(0)
-  await expect(page.locator('.base-marker')).toHaveCount(4)
+  await expect(page.locator('.base-marker')).toHaveCount(5)
   await page.getByRole('button',{name:'Zone',exact:true}).click()
   await expect(page.locator('.map-zone')).toHaveCount(4)
   await expect(page.locator('.custom-marker')).toHaveCount(2)
@@ -68,7 +72,7 @@ test('presidi permanenti e ping scaduti con storico conservato',async({page})=>{
   await page.getByRole('button',{name:'Presidi',exact:true}).click()
   await expect(page.locator('.base-marker')).toHaveCount(0)
   await page.getByRole('button',{name:'Presidi',exact:true}).click()
-  await expect(page.locator('.base-marker')).toHaveCount(4)
+  await expect(page.locator('.base-marker')).toHaveCount(5)
   await page.getByRole('button',{name:'Segnalazioni',exact:true}).click()
   await expect(page.getByRole('button',{name:'Ping scaduto',exact:true})).toBeVisible()
 })
@@ -99,7 +103,7 @@ test('un ping scompare a scadenza senza ricaricare, i presidi restano',async({pa
   await page.clock.fastForward(65000)
   await expect(page.locator('.custom-marker')).toHaveCount(1)
   await expect(page.locator('.map-footer')).toContainText('1 ping attivo')
-  await expect(page.locator('.base-marker')).toHaveCount(4)
+  await expect(page.locator('.base-marker')).toHaveCount(5)
 })
 
 test('mappa e controlli su mobile senza scorrimento orizzontale',async({page})=>{

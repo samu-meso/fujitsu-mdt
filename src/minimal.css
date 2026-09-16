@@ -127,3 +127,12 @@ th{font-size:11px;background:#1a1d21}td{font-size:12px;padding:18px 16px}.table-
 .shared-location-marker{pointer-events:auto;cursor:pointer}
 .shared-location-marker .shared-location-dot{margin:8px}
 .shared-location-marker .member-tooltip{position:absolute;bottom:39px;left:50%;transform:translateX(-50%);white-space:nowrap;padding:5px 9px;background:#23272d;color:#e8edf5;border:1px solid #444b55;border-radius:7px;font-size:12px;box-shadow:0 2px 8px #0005;pointer-events:auto}
+.map-section .base-pin{position:absolute;left:2px;top:2px;width:36px;height:36px;border:1.5px solid currentColor;border-radius:50% 50% 50% 8px;background:linear-gradient(145deg,#333a43,#191d24);transform:rotate(-45deg);box-shadow:-3px 4px 10px #0008,inset 0 1px 0 #ffffff14;transition:filter .15s}
+.map-section .base-pin svg{width:21px;height:21px;transform:rotate(45deg)}
+.base-marker:hover .base-pin,.base-marker:focus .base-pin{filter:brightness(1.25)}
+.base-pin.hq,.base-key.hq{color:#79c5ff}
+.hq-marker-label{position:absolute;bottom:54px;left:50%;transform:translateX(-50%);padding:4px 8px;border:1px solid #79c5ff70;border-radius:6px;background:#202b38;color:#b6dfff;font-size:11px;font-weight:700;letter-spacing:.5px;box-shadow:0 2px 6px #0005}
+.map-section .bases-legend{grid-template-columns:repeat(5,minmax(0,1fr))}
+.map-section .base-key{border-radius:9px;background:#252b33;border-color:#ffffff18;padding:0}
+.map-section .base-key svg{width:18px;height:18px}
+@media(max-width:760px){.map-section .bases-legend{grid-template-columns:repeat(2,minmax(0,1fr))}}

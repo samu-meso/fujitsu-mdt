@@ -1,5 +1,5 @@
 export type EmergencyBase = {
-  id:string; name:string; category:'fire'|'red-cross'|'green-cross'|'hospital';
+  id:string; name:string; category:'fire'|'red-cross'|'green-cross'|'hospital'|'hq';
   label:string; symbol:string; address:string; latitude:number; longitude:number;
   sourceUrl:string; coordinateSourceUrl:string; details?:string;
 }
@@ -7,6 +7,13 @@ export type EmergencyBase = {
 // Verified on 2026-09-16: official addresses and mapped facility coordinates.
 // Fixed facilities in the city of Reggio Emilia, separate from user reports.
 export const emergencyBases:EmergencyBase[] = [
+  {
+    id:'hq-reggio',name:'HQ',category:'hq',label:'HQ',symbol:'HQ',
+    address:'Via Marco Emilio Lepido, 4',latitude:44.6907536,longitude:10.6510969,
+    details:'Sede del gruppo.',
+    sourceUrl:'https://www.openstreetmap.org/node/7200791813',
+    coordinateSourceUrl:'https://www.openstreetmap.org/node/7200791813',
+  },
   {
     id:'vvf-reggio',name:'Comando Vigili del fuoco di Reggio Emilia',category:'fire',
     label:'Vigili del fuoco',symbol:'VVF',address:'Via della Canalina, 8',

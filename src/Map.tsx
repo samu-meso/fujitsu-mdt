@@ -29,6 +29,11 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
   const [showZones,setShowZones]=useState(true)
   const {enabled,location,error,start,stop}=useLiveLocation()
   const {members,sharing,error:sharingError}=useSharedLocations(userId,enabled&&!error,location)
+  const hq=emergencyBases.find(base=>base.category==='hq')!
+  const atHQ=(point:{latitude:number;longitude:number})=>L.latLng(hq.latitude,hq.longitude).distanceTo(L.latLng(point.latitude,point.longitude))<=100
+  const hqMembers=members.filter(atHQ)
+  const hqCount=hqMembers.length+(sharing&&location&&atHQ(location)?1:0)
+  const hqMemberNames=hqMembers.map(member=>member.profiles.username).concat(sharing&&location&&atHQ(location)?['Tu']:[]).join(', ')
   const selectedMember=members.find(member=>member.user_id===selectedUserId)
   const distance=location&&selectedMember&&!error?L.latLng(location.latitude,location.longitude).distanceTo(L.latLng(selectedMember.latitude,selectedMember.longitude)):null
   const distanceText=distance===null?'':distance<1000?`${Math.round(distance)} m`:`${(distance/1000).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} km`
@@ -90,11 +95,15 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     baseLayer.current?.clearLayers()
     if(!showBases)return
     emergencyBases.forEach(base=>{
-      const icon=L.divIcon({className:'base-marker',html:`<span class="base-pin ${base.category}">${baseIconSvg(base.category)}</span>${base.category==='hq'?'<span class="hq-marker-label">HQ</span>':''}`,iconSize:[40,48],iconAnchor:[20,44],popupAnchor:[0,-38]})
+      const icon=L.divIcon({className:`base-marker ${base.category==='hq'&&hqCount?'hq-active':''}`,html:`<span class="base-pin ${base.category}">${baseIconSvg(base.category)}</span>${base.category==='hq'?`<span class="hq-marker-label">HQ · ${hqCount}</span>`:''}`,iconSize:[40,48],iconAnchor:[20,44],popupAnchor:[0,-38]})
       const popup=document.createElement('div');popup.className='map-popup base-popup'
       const title=document.createElement('strong');title.textContent=base.name
       const address=document.createElement('p');address.textContent=`${base.address}, Reggio Emilia`
       popup.append(title,address)
+      if(base.category==='hq'){
+        const presence=document.createElement('p');presence.className='hq-popup-presence';presence.textContent=`Membri attivi: ${hqCount} · entro 100 m${hqMemberNames?` · ${hqMemberNames}`:''}`;popup.append(presence)
+        L.circle([base.latitude,base.longitude],{radius:100,color:hqCount?'#73d5ab':'#79c5ff',weight:1,dashArray:'4 4',fillOpacity:0.08,interactive:false,className:'hq-radius'}).addTo(baseLayer.current!)
+      }
       if(base.details){const details=document.createElement('small');details.textContent=base.details;popup.append(details)}
       const links=document.createElement('div');links.className='base-popup-links'
       for(const [label,url] of [[base.category==='hq'?'Posizione su OpenStreetMap':'Fonte ufficiale',base.sourceUrl],['Indicazioni',`https://www.google.com/maps/dir/?api=1&destination=${base.latitude},${base.longitude}`]]){
@@ -103,7 +112,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       popup.append(links)
       L.marker([base.latitude,base.longitude],{icon,alt:base.name,title:base.label,zIndexOffset:100,bubblingMouseEvents:false}).bindPopup(popup).addTo(baseLayer.current!)
     })
-  },[showBases])
+  },[showBases,hqCount,hqMemberNames])
 
   useEffect(()=>{
     locationLayer.current?.clearLayers()
@@ -149,6 +158,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Attiva il GPS per condividere la posizione'}</span>
     </div>
     <span className="sharing-status" role="status">{sharing?'Posizione condivisa con il portale':enabled?'Condivisione in attesa del GPS':'Posizione non condivisa'} · {members.length} {members.length===1?'altro utente visibile':'altri utenti visibili'}</span>
+    <div className={`hq-presence ${hqCount?'active':''}`} role="status"><span className="hq-presence-dot"/><strong>HQ · Membri attivi: {hqCount}</strong><span>entro 100 m</span></div>
     {selectedMember&&<div className="user-distance" role="status"><span><strong>{selectedMember.profiles.username}</strong> · {distance!==null?<>Distanza in linea d’aria: <strong>{distanceText}</strong></>:error?'GPS non disponibile':enabled?'In attesa della tua posizione…':'Attiva la tua posizione per calcolare la distanza'}</span><button className="button secondary" onClick={()=>setSelectedUserId(null)}>Chiudi</button></div>}
     {sharingError&&<p className="location-error" role="alert">{sharingError}</p>}
     {error&&<p className="location-error" role="alert">{error}</p>}

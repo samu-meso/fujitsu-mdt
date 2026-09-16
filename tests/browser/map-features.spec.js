@@ -253,3 +253,34 @@ test('emergenze di 24 ore scadono, permanenti restano e il modulo offre tre dura
   await page.getByRole('button',{name:'Salva segnalazione',exact:true}).click()
   await expect.poll(()=>submitted.at(-1)?.ping_duration_hours).toBe(24)
 })
+
+test('HQ conta i membri nel raggio e aggiorna colore per movimento e stop GPS',async({page})=>{
+  const live={members:[{user_id:'55555555-5555-4555-8555-555555555555',latitude:44.6907536,longitude:10.6510969,accuracy:12,updated_at:new Date().toISOString(),profiles:{username:'Membro HQ'}}],writes:[],deletes:0}
+  await prepare(page,live)
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
+  await expect(page.locator('.base-marker.hq-active')).toHaveCount(1)
+  await page.getByTitle('HQ',{exact:true}).click()
+  await expect(page.locator('.hq-popup-presence')).toContainText('Membro HQ')
+  await page.locator('.leaflet-popup-close-button').click()
+  await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.6907536,10.6510969))
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 2')
+  await page.evaluate(()=>window.__geoSet(44.692,10.6510969))
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
+  live.members=[]
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 0',{timeout:8000})
+  await expect(page.locator('.base-marker.hq-active')).toHaveCount(0)
+  await page.evaluate(()=>window.__geoSet(44.6907536,10.6510969))
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
+  await page.getByRole('button',{name:'Ferma posizione',exact:true}).click()
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 0')
+})
+
+test('localita nella lista mobile e coordinate di riserva per indirizzi vuoti',async({page})=>{
+  await page.setViewportSize({width:390,height:844})
+  await prepare(page,{members:[],writes:[],deletes:0,reportOverrides:{'Ping attivo':{address:'Via della Canalina, Reggio Emilia'},'Ping scaduto':{address:''}}})
+  await page.getByRole('button',{name:'Segnalazioni',exact:true}).click()
+  await expect(page.locator('.report-locality').filter({hasText:'Via della Canalina'})).toBeVisible()
+  await expect(page.locator('.report-locality').filter({hasText:'44.69800, 10.63000'})).toBeVisible()
+  await page.screenshot({path:'test-results/reports-locality-mobile.png',fullPage:true})
+})

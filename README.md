@@ -15,6 +15,10 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Funzioni della mappa
 
+**HQ** diventa verde quando ci sono membri con GPS condiviso entro 100 metri. Il marker e la barra mostrano il numero; il popup elenca i nomi. Il conteggio include la propria posizione quando condivisa e segue gli aggiornamenti e la scadenza delle posizioni online.
+
+La lista **Segnalazioni** mostra la località sotto il titolo, anche su mobile. Il campo indirizzo/località è sempre visibile nel modulo; se è vuoto, la lista mostra le coordinate come riferimento.
+
 **Zone** mostra/nasconde quattro settori indicativi dell'area urbana: Nord blu, Sud arancione, Est viola e Ovest verde. La suddivisione parte dal centro di Reggio Emilia e colora l'area con trasparenza; non rappresenta i confini amministrativi. Le zone non intercettano i clic sulla mappa e non modificano ping o presidi.
 
 La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato alle comuni mappe stradali e coerente con il resto dell'app. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps.

@@ -25,6 +25,8 @@ Gli alert arrivano tramite Supabase Realtime e aprono una finestra sopra la pagi
 
 La lista **Segnalazioni** mostra la località sotto il titolo, anche su mobile. Il campo indirizzo/località è sempre visibile nel modulo; se è vuoto, la lista mostra le coordinate come riferimento.
 
+Nel modulo l'indirizzo vuoto viene ricavato automaticamente da latitudine/longitudine tramite la Vercel Function autenticata `api/report-address.js` e Nominatim/OpenStreetMap. Cambiare le coordinate avvia una nuova ricerca; **Trova via dalle coordinate** permette di ripeterla. Un indirizzo manuale viene preservato finché il punto non cambia. Se il servizio è indisponibile, resta possibile salvare la segnalazione e inserire la località a mano. `NOMINATIM_URL` permette di configurare un servizio compatibile; le richieste hanno cache e sono distanziate di almeno 1,1 secondi per istanza. `node --env-file=.env scripts/fill-report-addresses.js` completa solo gli indirizzi vuoti già presenti nel database.
+
 **Zone** mostra/nasconde quattro settori indicativi dell'area urbana: Nord blu, Sud arancione, Est viola e Ovest verde. La suddivisione parte dal centro di Reggio Emilia e colora l'area con trasparenza; non rappresenta i confini amministrativi. Le zone non intercettano i clic sulla mappa e non modificano ping o presidi.
 
 La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato alle comuni mappe stradali e coerente con il resto dell'app. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps.

@@ -18,6 +18,7 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
     const access_token=`${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:userId,role:'authenticated',exp:Math.floor(now/1000)+3600})}.test`
     return route.fulfill({json:{access_token,token_type:'bearer',expires_in:3600,expires_at:Math.floor(now/1000)+3600,refresh_token:'test-refresh',user}})
   })
+  await page.route('**/api/report-address',route=>route.fulfill({json:{address:'Via di test, Reggio Emilia'}}))
   await page.routeWebSocket('**/realtime/v1/websocket**',socket=>{
     if(!live.realtime)return socket.close()
     socket.onMessage(raw=>{
@@ -384,4 +385,42 @@ test('alert leggibile su mobile e avvisi non confermati recuperati alla riapertu
   await expect(page.locator('.received-alert-message')).toHaveText('Avviso da confermare')
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
   await page.screenshot({path:'test-results/portal-alert-mobile.png',fullPage:true})
+})
+
+test('via ricavata dalle coordinate, manuale preservato e nuova ricerca dopo spostamento',async({page})=>{
+  await prepare(page)
+  const requests=[]
+  await page.route('**/api/report-address',route=>{
+    const point=route.request().postDataJSON();requests.push(point)
+    return route.fulfill({json:{address:point.latitude===44.699?'Piazza Tricolore, Reggio Emilia':'Via Adua, Reggio Emilia'}})
+  })
+  await page.getByRole('button',{name:'Nuova segnalazione',exact:true}).click()
+  const address=page.getByLabel('Indirizzo o località',{exact:true})
+  await expect(address).toHaveValue('Via Adua, Reggio Emilia')
+  expect(requests[0]).toMatchObject({latitude:44.698,longitude:10.632})
+  await address.fill('Località inserita a mano')
+  await expect(address).toHaveValue('Località inserita a mano')
+  await page.getByText('Posizione e fascicolo collegato',{exact:true}).click()
+  await page.getByLabel('Latitudine',{exact:true}).fill('44.699')
+  await expect(address).toHaveValue('Piazza Tricolore, Reggio Emilia')
+  await expect(page.getByRole('button',{name:'Trova via dalle coordinate'})).toBeEnabled()
+  await page.screenshot({path:'test-results/report-address.png',fullPage:true})
+})
+
+test('geocodifica non disponibile permette comunque di salvare una segnalazione',async({page})=>{
+  await prepare(page)
+  await page.route('**/api/report-address',route=>route.fulfill({status:502,json:{error:'Ricerca indirizzo non disponibile'}}))
+  let saved
+  await page.route('**/rest/v1/reports?**',route=>{
+    if(route.request().method()!=='POST')return route.fallback()
+    saved=route.request().postDataJSON()
+    return route.fulfill({status:400,json:{message:'Salvataggio simulato'}})
+  })
+  await page.getByRole('button',{name:'Nuova segnalazione',exact:true}).click()
+  await expect(page.getByText('Ricerca indirizzo non disponibile',{exact:true})).toBeVisible()
+  await page.getByLabel('Titolo',{exact:true}).fill('Segnalazione urgente')
+  await page.getByLabel('Descrizione',{exact:true}).fill('Richiesta di supporto in zona')
+  await page.getByRole('button',{name:'Salva segnalazione',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('Salvataggio simulato')
+  expect(saved).toMatchObject({title:'Segnalazione urgente',address:'',latitude:44.698,longitude:10.632})
 })

@@ -62,7 +62,9 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
       }
       return route.fulfill({json:(live.inbox||[]).filter(alert=>!alert.read_at)})
     }
-    const data=table==='profiles'?(url.searchParams.has('id')?profile:[profile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
+    if(table==='profiles'&&route.request().method()==='PATCH'){live.profileAlias=route.request().postDataJSON().alias;live.profileWrite={body:route.request().postDataJSON(),id:url.searchParams.get('id')};return route.fulfill({status:204,body:''})}
+    const currentProfile={...profile,alias:live.profileAlias||''}
+    const data=table==='profiles'?(url.searchParams.has('id')?currentProfile:[currentProfile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
     return route.fulfill({json:data})
   })
   // Every geolocation value is simulated; tests never use device GPS or real data.
@@ -483,3 +485,20 @@ test('mobile recupera un alert bloccato e riproduce anche il successivo senza ri
   await received.getByRole('button',{name:'Riproduci suono'}).click()
   await expect.poll(()=>page.evaluate(()=>window.__sounds.length)).toBe(3)
 })
+
+ test('alias personale salvato, recuperato alla riapertura e cancellabile',async({page})=>{
+  const live={members:[],writes:[],deletes:0}
+  await prepare(page,live)
+  const openProfile=async()=>{await page.getByRole('button',{name:'Menu account'}).click();await page.getByRole('button',{name:'Profilo',exact:true}).click()}
+  await openProfile()
+  await page.getByRole('textbox',{name:'Alias',exact:true}).fill('  Falco  ')
+  await page.getByRole('button',{name:'Salva alias',exact:true}).click()
+  await expect(page.getByRole('textbox',{name:'Alias',exact:true})).toHaveValue('Falco')
+  expect(live.profileWrite).toEqual({body:{alias:'Falco'},id:`eq.${userId}`})
+  await page.reload()
+  await openProfile()
+  await expect(page.getByRole('textbox',{name:'Alias',exact:true})).toHaveValue('Falco')
+  await page.getByRole('textbox',{name:'Alias',exact:true}).fill('')
+  await page.getByRole('button',{name:'Salva alias',exact:true}).click()
+  await expect.poll(()=>live.profileAlias).toBe('')
+ })

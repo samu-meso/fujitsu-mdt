@@ -21,7 +21,7 @@ Gli alert arrivano tramite Supabase Realtime e aprono una finestra sopra la pagi
 
 ## Funzioni della mappa
 
-**HQ** diventa verde quando ci sono membri con GPS condiviso entro 100 metri. Il marker e la barra mostrano il numero; il popup elenca i nomi. Il conteggio include la propria posizione quando condivisa e segue gli aggiornamenti e la scadenza delle posizioni online.
+**HQ** diventa verde quando ci sono membri con GPS condiviso entro 25 metri. Il marker e la barra mostrano il numero; il popup elenca i nomi. Il conteggio include la propria posizione quando condivisa e segue gli aggiornamenti e la scadenza delle posizioni online.
 
 La lista **Segnalazioni** mostra la località sotto il titolo, anche su mobile. Il campo indirizzo/località è sempre visibile nel modulo; se è vuoto, la lista mostra le coordinate come riferimento.
 

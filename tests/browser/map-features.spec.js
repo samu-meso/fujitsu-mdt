@@ -301,7 +301,7 @@ test('HQ conta i membri nel raggio e aggiorna colore per movimento e stop GPS',a
   await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
   await page.evaluate(()=>window.__geoSet(44.6907536,10.6510969))
   await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 2')
-  await page.evaluate(()=>window.__geoSet(44.692,10.6510969))
+  await page.evaluate(()=>window.__geoSet(44.6911,10.6510969))
   await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
   live.members=[]
   await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 0',{timeout:8000})

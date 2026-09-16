@@ -14,7 +14,7 @@ export default async function handler(request,response){
   const {data:caller,error:callerError}=await admin.from('profiles').select('role,active').eq('id',user.id).single()
   if(callerError||!caller?.active||caller.role!=='admin')return json(response,403,{error:'Operazione riservata agli amministratori.'})
   if(request.method==='GET'){
-    const {data,error}=await admin.from('profiles').select('id,username,email,role,active,created_at,updated_at').order('username')
+    const {data,error}=await admin.from('profiles').select('id,username,alias,email,role,active,created_at,updated_at').order('username')
     return error?json(response,400,{error:error.message}):json(response,200,data)
   }
   if(request.method==='POST'){

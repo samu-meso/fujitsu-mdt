@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react'
 import {supabase} from './supabase'
 import type {LiveLocation} from './useLiveLocation'
 
-export type SharedLocation={user_id:string;latitude:number;longitude:number;accuracy:number;updated_at:string;profiles:{username:string}}
+export type SharedLocation={user_id:string;latitude:number;longitude:number;accuracy:number;updated_at:string;profiles:{username:string;alias?:string}}
 const freshness=45_000
 
 export function useSharedLocations(userId:string,enabled:boolean,location:LiveLocation|null){
@@ -32,7 +32,7 @@ export function useSharedLocations(userId:string,enabled:boolean,location:LiveLo
             if(error)throw error
             published=true
           }else if(published){await remove()}
-          const {data,error}=await supabase.from('live_locations').select('user_id,latitude,longitude,accuracy,updated_at,profiles!live_locations_user_id_fkey(username)').neq('user_id',userId)
+          const {data,error}=await supabase.from('live_locations').select('user_id,latitude,longitude,accuracy,updated_at,profiles!live_locations_user_id_fkey(username,alias)').neq('user_id',userId)
           if(error)throw error
           if(active){setMembers(previous=>{const next=(data as unknown as SharedLocation[]).filter(member=>Date.now()-Date.parse(member.updated_at)<freshness);return JSON.stringify(previous)===JSON.stringify(next)?previous:next});setSharing(Boolean(fresh));setError('')}
         }catch{

@@ -1,8 +1,9 @@
+import {displayName} from './displayName'
 import {useEffect,useRef,useState} from 'react'
 import {supabase} from './supabase'
 
-export type OnlineMember={user_id:string;profiles:{username:string};updated_at:string}
-export type PortalAlert={id:string;sender_id:string;recipient_id:string;kind:'emergency'|'info';message:string;created_at:string;read_at:string|null;profiles:{username:string}}
+export type OnlineMember={user_id:string;profiles:{username:string;alias?:string};updated_at:string}
+export type PortalAlert={id:string;sender_id:string;recipient_id:string;kind:'emergency'|'info';message:string;created_at:string;read_at:string|null;profiles:{username:string;alias?:string}}
 
 export function usePortalAlerts(userId:string){
   const [sessionId]=useState(()=>crypto.randomUUID())
@@ -18,7 +19,7 @@ export function usePortalAlerts(userId:string){
       if(!active||inboxBusy)return
       inboxBusy=true
       try{
-        const {data,error}=await supabase.from('portal_alerts').select('*,profiles!portal_alerts_sender_id_fkey(username)').eq('recipient_id',userId).is('read_at',null).order('created_at',{ascending:true}).limit(20)
+        const {data,error}=await supabase.from('portal_alerts').select('*,profiles!portal_alerts_sender_id_fkey(username,alias)').eq('recipient_id',userId).is('read_at',null).order('created_at',{ascending:true}).limit(20)
         if(error)throw error
         if(active)setAlerts((data as unknown as PortalAlert[]).filter(alert=>!acknowledged.current.has(alert.id)))
       }catch{if(active)setError('Alert non disponibili. Controlla la connessione.')}finally{inboxBusy=false}
@@ -33,11 +34,11 @@ export function usePortalAlerts(userId:string){
             const {error}=await supabase.from('portal_sessions').upsert({id:sessionId,user_id:userId},{onConflict:'id'})
             if(error)throw error
           }else await remove()
-          const {data,error}=await supabase.from('portal_sessions').select('user_id,updated_at,profiles!portal_sessions_user_id_fkey(username)').neq('user_id',userId)
+          const {data,error}=await supabase.from('portal_sessions').select('user_id,updated_at,profiles!portal_sessions_user_id_fkey(username,alias)').neq('user_id',userId)
           if(error)throw error
           const unique=new Map<string,OnlineMember>()
           for(const member of data as unknown as OnlineMember[])if(Date.now()-Date.parse(member.updated_at)<45_000)unique.set(member.user_id,member)
-          if(active){setMembers([...unique.values()].sort((a,b)=>a.profiles.username.localeCompare(b.profiles.username)));setError('')}
+          if(active){setMembers([...unique.values()].sort((a,b)=>displayName(a.profiles).localeCompare(displayName(b.profiles))));setError('')}
         }catch{if(active){setMembers([]);setError('Utenti online non disponibili. Controlla la connessione.')}}
       })
     }

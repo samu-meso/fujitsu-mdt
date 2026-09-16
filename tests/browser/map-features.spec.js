@@ -64,7 +64,7 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
     }
     if(table==='profiles'&&route.request().method()==='PATCH'){live.profileAlias=route.request().postDataJSON().alias;live.profileWrite={body:route.request().postDataJSON(),id:url.searchParams.get('id')};return route.fulfill({status:204,body:''})}
     const currentProfile={...profile,alias:live.profileAlias||''}
-    const data=table==='profiles'?(url.searchParams.has('id')?currentProfile:[currentProfile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
+    const data=table==='profiles'?(url.searchParams.has('id')?currentProfile:[currentProfile]):table==='reports'?reports.map(r=>({...r,profiles:{...r.profiles,alias:live.profileAlias||r.profiles.alias}})):table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
     return route.fulfill({json:data})
   })
   // Every geolocation value is simulated; tests never use device GPS or real data.
@@ -494,6 +494,8 @@ test('mobile recupera un alert bloccato e riproduce anche il successivo senza ri
   await page.getByRole('textbox',{name:'Alias',exact:true}).fill('  Falco  ')
   await page.getByRole('button',{name:'Salva alias',exact:true}).click()
   await expect(page.getByRole('textbox',{name:'Alias',exact:true})).toHaveValue('Falco')
+  await expect(page.locator('.account-toggle')).toContainText('Falco')
+  await expect(page.getByRole('heading',{name:'Falco',exact:true})).toBeVisible()
   expect(live.profileWrite).toEqual({body:{alias:'Falco'},id:`eq.${userId}`})
   await page.reload()
   await openProfile()
@@ -501,4 +503,26 @@ test('mobile recupera un alert bloccato e riproduce anche il successivo senza ri
   await page.getByRole('textbox',{name:'Alias',exact:true}).fill('')
   await page.getByRole('button',{name:'Salva alias',exact:true}).click()
   await expect.poll(()=>live.profileAlias).toBe('')
+  await expect(page.locator('.account-toggle')).toContainText('Map test')
  })
+
+test('alias visibile su mappa, distanza, HQ e mittente degli alert',async({page})=>{
+ const member={user_id:'55555555-5555-4555-8555-555555555555',latitude:44.6907536,longitude:10.6510969,accuracy:5,updated_at:new Date().toISOString(),profiles:{username:'Nome Cognome',alias:'Aquila'}}
+ const live={members:[member],writes:[],deletes:0,inbox:[],portalMembers:[member],profileAlias:'Falco'}
+ await prepare(page,live)
+ await expect(page.locator('.account-toggle')).toContainText('Falco')
+ await expect(page.locator('.member-tooltip')).toHaveText('Aquila')
+ await page.locator('.member-tooltip').click()
+ await expect(page.locator('.user-distance')).toContainText('Aquila')
+ await page.getByTitle('HQ',{exact:true}).click()
+ await expect(page.locator('.base-popup')).toContainText('Aquila')
+ await page.locator('.leaflet-popup-close-button').click()
+ await page.locator('.portal-alert-button').click()
+ await expect(page.getByRole('option',{name:'Aquila',exact:true})).toHaveCount(1)
+ await page.getByRole('button',{name:'Chiudi alert',exact:true}).click()
+ live.inbox.push({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',sender_id:member.user_id,recipient_id:userId,kind:'info',message:'Test alias mittente',created_at:new Date().toISOString(),read_at:null,profiles:member.profiles})
+ await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toContainText('Da Aquila')
+ await page.getByRole('button',{name:'Ho letto',exact:true}).click()
+ await page.getByRole('button',{name:'Segnalazioni',exact:true}).click()
+ await expect(page.locator('.reports-table tbody tr').first()).toContainText('Falco')
+})

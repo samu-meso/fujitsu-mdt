@@ -1,3 +1,4 @@
+import {displayName} from './displayName'
 import {useEffect,useRef,useState} from 'react'
 import {Building2,LocateFixed} from 'lucide-react'
 import L from 'leaflet'
@@ -35,7 +36,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
   const atHQ=(point:{latitude:number;longitude:number})=>L.latLng(hq.latitude,hq.longitude).distanceTo(L.latLng(point.latitude,point.longitude))<=HQ_RADIUS_METERS
   const hqMembers=members.filter(atHQ)
   const hqCount=hqMembers.length+(sharing&&location&&atHQ(location)?1:0)
-  const hqMemberNames=hqMembers.map(member=>member.profiles.username).concat(sharing&&location&&atHQ(location)?['Tu']:[]).join(', ')
+  const hqMemberNames=hqMembers.map(member=>displayName(member.profiles)).concat(sharing&&location&&atHQ(location)?['Tu']:[]).join(', ')
   const selectedMember=members.find(member=>member.user_id===selectedUserId)
   const distance=location&&selectedMember&&!error?L.latLng(location.latitude,location.longitude).distanceTo(L.latLng(selectedMember.latitude,selectedMember.longitude)):null
   const distanceText=distance===null?'':distance<1000?`${Math.round(distance)} m`:`${(distance/1000).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} km`
@@ -134,10 +135,10 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     members.forEach(member=>{
       const content=document.createElement('div')
       const dot=document.createElement('span');dot.className='shared-location-dot'
-      const label=document.createElement('span');label.className='member-tooltip';label.textContent=member.profiles.username
+      const label=document.createElement('span');label.className='member-tooltip';label.textContent=displayName(member.profiles)
       content.append(dot,label)
       const icon=L.divIcon({className:'shared-location-marker',html:content,iconSize:[36,36],iconAnchor:[18,18]})
-      L.marker([member.latitude,member.longitude],{icon,pane:'liveUsers',alt:member.profiles.username,title:'Clicca per mostrare o nascondere la distanza',bubblingMouseEvents:false}).on('click',event=>{
+      L.marker([member.latitude,member.longitude],{icon,pane:'liveUsers',alt:displayName(member.profiles),title:'Clicca per mostrare o nascondere la distanza',bubblingMouseEvents:false}).on('click',event=>{
         L.DomEvent.stopPropagation(event.originalEvent)
         map.current?.closePopup()
         setSelectedUserId(current=>current===member.user_id?null:member.user_id)
@@ -161,7 +162,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     </div>
     <span className="sharing-status" role="status">{sharing?'Posizione condivisa con il portale':enabled?'Condivisione in attesa del GPS':'Posizione non condivisa'} · {members.length} {members.length===1?'altro utente visibile':'altri utenti visibili'}</span>
     <div className={`hq-presence ${hqCount?'active':''}`} role="status"><span className="hq-presence-dot"/><strong>HQ · Membri attivi: {hqCount}</strong><span>entro {HQ_RADIUS_METERS} m</span></div>
-    {selectedMember&&<div className="user-distance" role="status"><span><strong>{selectedMember.profiles.username}</strong> · {distance!==null?<>Distanza in linea d’aria: <strong>{distanceText}</strong></>:error?'GPS non disponibile':enabled?'In attesa della tua posizione…':'Attiva la tua posizione per calcolare la distanza'}</span><button className="button secondary" onClick={()=>setSelectedUserId(null)}>Chiudi</button></div>}
+    {selectedMember&&<div className="user-distance" role="status"><span><strong>{displayName(selectedMember.profiles)}</strong> · {distance!==null?<>Distanza in linea d’aria: <strong>{distanceText}</strong></>:error?'GPS non disponibile':enabled?'In attesa della tua posizione…':'Attiva la tua posizione per calcolare la distanza'}</span><button className="button secondary" onClick={()=>setSelectedUserId(null)}>Chiudi</button></div>}
     {sharingError&&<p className="location-error" role="alert">{sharingError}</p>}
     {error&&<p className="location-error" role="alert">{error}</p>}
     <div className={`map-wrap ${large?'large':''}`}>

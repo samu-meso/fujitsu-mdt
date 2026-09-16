@@ -40,13 +40,19 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     L.control.zoom({position:'bottomright'}).addTo(instance)
     instance.createPane('zones').style.zIndex='350'
     instance.getPane('zones')!.style.pointerEvents='none'
+    instance.createPane('liveUsers').style.zIndex='710'
+    instance.getPane('liveUsers')!.style.pointerEvents='none'
     zoneLayer.current=L.layerGroup().addTo(instance)
     reportLayer.current=L.layerGroup().addTo(instance)
     baseLayer.current=L.layerGroup().addTo(instance)
     locationLayer.current=L.layerGroup().addTo(instance)
     membersLayer.current=L.layerGroup().addTo(instance)
     distanceLayer.current=L.layerGroup().addTo(instance)
-    instance.on('click',(event:L.LeafletMouseEvent)=>callbacks.current.onCreate(event.latlng.lat,event.latlng.lng))
+    instance.on('click',(event:L.LeafletMouseEvent)=>{
+      const target=event.originalEvent?.target
+      if(target instanceof Element&&target.closest('.leaflet-marker-icon,.leaflet-popup,.leaflet-control,.member-tooltip'))return
+      callbacks.current.onCreate(event.latlng.lat,event.latlng.lng)
+    })
     const observer=new ResizeObserver(()=>instance.invalidateSize());observer.observe(element.current)
     return()=>{observer.disconnect();instance.remove();map.current=null}
   },[])
@@ -102,8 +108,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     const point:L.LatLngTuple=[location.latitude,location.longitude]
     L.circle(point,{radius:location.accuracy,color:'#67a9ff',fillColor:'#67a9ff',fillOpacity:0.12,weight:1,interactive:false}).addTo(locationLayer.current!)
     const icon=L.divIcon({className:'user-location-marker',html:'<span class="user-location-dot"></span>',iconSize:[22,22],iconAnchor:[11,11]})
-    const popup=document.createElement('div');popup.textContent=`La tua posizione · precisione ±${Math.round(location.accuracy)} m`
-    L.marker(point,{icon,alt:'La tua posizione',title:'La tua posizione',zIndexOffset:1000}).bindPopup(popup).addTo(locationLayer.current!)
+    L.marker(point,{icon,alt:'La tua posizione',title:'La tua posizione',zIndexOffset:1000,bubblingMouseEvents:false}).on('click',event=>{L.DomEvent.stopPropagation(event.originalEvent)}).addTo(locationLayer.current!)
     if(!centered.current){map.current?.setView(point,16,{animate:false});centered.current=true}
   },[location])
 
@@ -113,10 +118,16 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     membersLayer.current?.eachLayer(layer=>{if(layer instanceof L.Marker)layer.closeTooltip()})
     membersLayer.current?.clearLayers()
     members.forEach(member=>{
+      const content=document.createElement('div')
       const dot=document.createElement('span');dot.className='shared-location-dot'
-      const icon=L.divIcon({className:'shared-location-marker',html:dot,iconSize:[20,20],iconAnchor:[10,10]})
-      const label=document.createElement('span');label.textContent=member.profiles.username
-      L.marker([member.latitude,member.longitude],{icon,alt:member.profiles.username,title:'Clicca per mostrare o nascondere la distanza',zIndexOffset:900,bubblingMouseEvents:false}).bindTooltip(label,{permanent:true,direction:'top',className:'member-tooltip'}).on('click',()=>setSelectedUserId(current=>current===member.user_id?null:member.user_id)).addTo(membersLayer.current!)
+      const label=document.createElement('span');label.className='member-tooltip';label.textContent=member.profiles.username
+      content.append(dot,label)
+      const icon=L.divIcon({className:'shared-location-marker',html:content,iconSize:[36,36],iconAnchor:[18,18]})
+      L.marker([member.latitude,member.longitude],{icon,pane:'liveUsers',alt:member.profiles.username,title:'Clicca per mostrare o nascondere la distanza',bubblingMouseEvents:false}).on('click',event=>{
+        L.DomEvent.stopPropagation(event.originalEvent)
+        map.current?.closePopup()
+        setSelectedUserId(current=>current===member.user_id?null:member.user_id)
+      }).addTo(membersLayer.current!)
     })
   },[members])
 

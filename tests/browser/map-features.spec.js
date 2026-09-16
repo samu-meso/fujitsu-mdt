@@ -190,3 +190,27 @@ test('distanza in linea di aria aggiornata per entrambi e secondo clic per nasco
   await expect(page.locator('.user-distance')).toHaveCount(0,{timeout:8000})
   await expect(page.locator('.user-distance-line')).toHaveCount(0)
 })
+
+test('punti sovrapposti e nome utente non aprono precisione o nuova segnalazione',async({page})=>{
+  const live={members:[{user_id:'55555555-5555-4555-8555-555555555555',latitude:44.698,longitude:10.630,accuracy:12,updated_at:new Date().toISOString(),profiles:{username:'Utente sovrapposto'}}],writes:[],deletes:0}
+  await prepare(page,live)
+  await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.698,10.630))
+  await expect(page.locator('.user-location-marker')).toHaveCount(1)
+  await page.locator('.shared-location-dot').click()
+  await expect(page.locator('.user-distance')).toContainText('0 m')
+  await expect(page.locator('.leaflet-popup')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.locator('.member-tooltip').click()
+  await expect(page.locator('.user-distance')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.locator('.member-tooltip').click()
+  await expect(page.locator('.user-distance')).toContainText('0 m')
+  await page.evaluate(()=>window.__geoSet(44.699,10.630))
+  await page.locator('.user-location-marker').click()
+  await expect(page.locator('.leaflet-popup')).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  // Background clicks still allow creating a report.
+  await page.locator('.leaflet-map').click({position:{x:100,y:150}})
+  await expect(page.getByRole('dialog',{name:'Dettagli segnalazione'})).toBeVisible()
+})

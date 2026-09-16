@@ -8,19 +8,23 @@ import {emergencyBases} from './emergencyBases'
 import {pingExpiresAt} from './pings'
 import {useLiveLocation} from './useLiveLocation'
 import {mapZones} from './mapZones'
+import {useSharedLocations} from './useSharedLocations'
 
 function resetCity(instance:L.Map){
   instance.fitBounds(emergencyBases.map(base=>[base.latitude,base.longitude] as L.LatLngTuple),{padding:[36,70],maxZoom:13})
 }
 
-export default function Map({reports,types,onSelect,onCreate,large=false}:{reports:Report[];types:ReportType[];onSelect:(id:string)=>void;onCreate:(lat:number,lng:number)=>void;large?:boolean}){
+export default function Map({userId,reports,types,onSelect,onCreate,large=false}:{userId:string;reports:Report[];types:ReportType[];onSelect:(id:string)=>void;onCreate:(lat:number,lng:number)=>void;large?:boolean}){
   const element=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null)
   const reportLayer=useRef<L.LayerGroup|null>(null),baseLayer=useRef<L.LayerGroup|null>(null),locationLayer=useRef<L.LayerGroup|null>(null)
+  const membersLayer=useRef<L.LayerGroup|null>(null)
+  const [followGPS,setFollowGPS]=useState(false)
   const zoneLayer=useRef<L.LayerGroup|null>(null)
   const centered=useRef(false),callbacks=useRef({onSelect,onCreate})
   const [showBases,setShowBases]=useState(true)
   const [showZones,setShowZones]=useState(true)
   const {enabled,location,error,start,stop}=useLiveLocation()
+  const {members,sharing,error:sharingError}=useSharedLocations(userId,enabled&&!error,location)
   useEffect(()=>{callbacks.current={onSelect,onCreate}},[onSelect,onCreate])
   useEffect(()=>{
     if(!element.current)return
@@ -35,6 +39,7 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     reportLayer.current=L.layerGroup().addTo(instance)
     baseLayer.current=L.layerGroup().addTo(instance)
     locationLayer.current=L.layerGroup().addTo(instance)
+    membersLayer.current=L.layerGroup().addTo(instance)
     instance.on('click',(event:L.LeafletMouseEvent)=>callbacks.current.onCreate(event.latlng.lat,event.latlng.lng))
     const observer=new ResizeObserver(()=>instance.invalidateSize());observer.observe(element.current)
     return()=>{observer.disconnect();instance.remove();map.current=null}
@@ -93,16 +98,33 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     const icon=L.divIcon({className:'user-location-marker',html:'<span class="user-location-dot"></span>',iconSize:[22,22],iconAnchor:[11,11]})
     const popup=document.createElement('div');popup.textContent=`La tua posizione · precisione ±${Math.round(location.accuracy)} m`
     L.marker(point,{icon,alt:'La tua posizione',title:'La tua posizione',zIndexOffset:1000}).bindPopup(popup).addTo(locationLayer.current!)
-    if(!centered.current){map.current?.setView(point,16);centered.current=true}
+    if(!centered.current){map.current?.setView(point,16,{animate:false});centered.current=true}
   },[location])
+
+  useEffect(()=>{if(followGPS&&location&&map.current){map.current.stop();map.current.setView([location.latitude,location.longitude],map.current.getZoom(),{animate:false})}},[followGPS,location])
+
+  useEffect(()=>{
+    membersLayer.current?.eachLayer(layer=>{if(layer instanceof L.Marker)layer.closeTooltip()})
+    membersLayer.current?.clearLayers()
+    members.forEach(member=>{
+      const dot=document.createElement('span');dot.className='shared-location-dot'
+      const icon=L.divIcon({className:'shared-location-marker',html:dot,iconSize:[20,20],iconAnchor:[10,10]})
+      const label=document.createElement('span');label.textContent=member.profiles.username
+      const popup=document.createElement('div');popup.textContent=`${member.profiles.username} · precisione ±${Math.round(member.accuracy)} m`
+      L.marker([member.latitude,member.longitude],{icon,alt:member.profiles.username,zIndexOffset:900}).bindTooltip(label,{permanent:true,direction:'top',className:'member-tooltip'}).bindPopup(popup).addTo(membersLayer.current!)
+    })
+  },[members])
 
   return <div className="map-section">
     <div className="map-toolbar">
-      <button className={`button secondary ${enabled?'selected':''}`} aria-pressed={enabled} onClick={enabled?stop:start}><LocateFixed size={16}/>{enabled?'Ferma posizione':'La mia posizione'}</button>
+      <button className={`button secondary ${enabled?'selected':''}`} aria-pressed={enabled} onClick={()=>{setFollowGPS(false);if(enabled)stop();else start()}}><LocateFixed size={16}/>{enabled?'Ferma posizione':'La mia posizione'}</button>
+      {enabled&&<button className={`button secondary ${followGPS?'selected':''}`} aria-pressed={followGPS} disabled={!location} onClick={()=>setFollowGPS(value=>!value)}><LocateFixed size={16}/>Segui GPS</button>}
       <button className={`button secondary ${showBases?'selected':''}`} aria-pressed={showBases} onClick={()=>setShowBases(value=>!value)}><Building2 size={16}/>Presidi</button>
       <button className={`button secondary ${showZones?'selected':''}`} aria-pressed={showZones} onClick={()=>setShowZones(value=>!value)}>Zone</button>
-      <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Posizione visibile solo a te'}</span>
+      <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Attiva il GPS per condividere la posizione'}</span>
     </div>
+    <span className="sharing-status" role="status">{sharing?'Posizione condivisa con il portale':enabled?'Condivisione in attesa del GPS':'Posizione non condivisa'} · {members.length} {members.length===1?'altro utente visibile':'altri utenti visibili'}</span>
+    {sharingError&&<p className="location-error" role="alert">{sharingError}</p>}
     {error&&<p className="location-error" role="alert">{error}</p>}
     <div className={`map-wrap ${large?'large':''}`}>
       <div ref={element} className="leaflet-map" aria-label="Mappa interattiva di Reggio Emilia e provincia"/>

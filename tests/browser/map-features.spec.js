@@ -4,7 +4,7 @@ const userId='11111111-1111-4111-8111-111111111111'
 const user={id:userId,email:'map-test@example.com',role:'authenticated',aud:'authenticated',created_at:new Date().toISOString(),app_metadata:{provider:'email',providers:['email']},user_metadata:{username:'Map test'}}
 const profile={id:userId,username:'Map test',role:'admin',active:true,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}
 
-async function prepare(page){
+async function prepare(page,live={members:[],writes:[],deletes:0}){
   const now=Date.now()
   const reports=[
     {id:'22222222-2222-4222-8222-222222222222',title:'Ping attivo',created_at:new Date(now-3600000).toISOString()},
@@ -20,6 +20,11 @@ async function prepare(page){
   })
   await page.route('**/rest/v1/**',route=>{
     const url=new URL(route.request().url()),table=url.pathname.split('/').at(-1)
+    if(table==='live_locations'){
+      if(route.request().method()==='POST'){live.writes.push(route.request().postDataJSON());return route.fulfill({status:201,body:''})}
+      if(route.request().method()==='DELETE'){live.deletes++;return route.fulfill({status:204,body:''})}
+      return route.fulfill({json:live.members})
+    }
     const data=table==='profiles'?(url.searchParams.has('id')?profile:[profile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true}]:[]
     return route.fulfill({json:data})
   })
@@ -112,4 +117,49 @@ test('mappa e controlli su mobile senza scorrimento orizzontale',async({page})=>
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
   await page.screenshot({path:'test-results/map-mobile.png',fullPage:true})
+})
+
+
+test('segue il GPS e condivide solo quando attivo; mostra le posizioni recenti del gruppo',async({page})=>{
+  const live={members:[
+    {user_id:'55555555-5555-4555-8555-555555555555',latitude:44.698,longitude:10.630,accuracy:12,updated_at:new Date().toISOString(),profiles:{username:'Utente online'}},
+    {user_id:'66666666-6666-4666-8666-666666666666',latitude:44.698,longitude:10.630,accuracy:12,updated_at:new Date(Date.now()-60000).toISOString(),profiles:{username:'Utente offline'}},
+  ],writes:[],deletes:0}
+  await prepare(page,live)
+  await expect(page.locator('.shared-location-marker')).toHaveCount(1)
+  await expect(page.locator('.member-tooltip')).toContainText('Utente online')
+  expect(live.writes).toHaveLength(0)
+  await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.698,10.630))
+  await expect(page.locator('.sharing-status')).toContainText('Posizione condivisa con il portale')
+  expect(live.writes.at(-1)).toMatchObject({user_id:userId,latitude:44.698,longitude:10.630})
+  await page.getByRole('button',{name:'Segui GPS',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.710,10.650))
+  await expect.poll(async()=>{
+    const marker=await page.locator('.user-location-marker').boundingBox(),map=await page.locator('.leaflet-map').boundingBox()
+    if(!marker||!map)return Infinity
+    return Math.abs(marker.x+marker.width/2-map.x-map.width/2)+Math.abs(marker.y+marker.height/2-map.y-map.height/2)
+  }).toBeLessThan(4)
+  await expect.poll(()=>live.writes.at(-1)?.latitude).toBe(44.710)
+  await page.getByRole('button',{name:'Segui GPS',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Segui GPS',exact:true})).toHaveAttribute('aria-pressed','false')
+  await page.getByRole('button',{name:'Ferma posizione',exact:true}).click()
+  await expect.poll(()=>live.deletes).toBeGreaterThan(0)
+  await expect(page.locator('.sharing-status')).toContainText('Posizione non condivisa')
+  await expect(page.locator('.shared-location-marker')).toHaveCount(1)
+})
+
+test('il GPS di un utente fermo resta condiviso; gli utenti disconnessi scadono',async({page})=>{
+  await page.clock.install()
+  const live={members:[{user_id:'55555555-5555-4555-8555-555555555555',latitude:44.698,longitude:10.630,accuracy:12,updated_at:new Date().toISOString(),profiles:{username:'Utente online'}}],writes:[],deletes:0}
+  await prepare(page,live)
+  await expect(page.locator('.shared-location-marker')).toHaveCount(1)
+  await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.698,10.630))
+  await expect(page.locator('.sharing-status')).toContainText('Posizione condivisa')
+  await page.clock.fastForward(60000)
+  await expect(page.locator('.shared-location-marker')).toHaveCount(0)
+  await expect.poll(()=>live.writes.length).toBeGreaterThan(1)
+  await expect(page.locator('.sharing-status')).toContainText('Posizione condivisa')
+  expect(live.deletes).toBe(0)
 })

@@ -116,3 +116,8 @@ th{font-size:11px;background:#1a1d21}td{font-size:12px;padding:18px 16px}.table-
 .full-map-panel .map-footer{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 15px;padding:14px 18px;line-height:1.5}
 .map-footer strong{font-size:12px;color:#e8eaed;font-weight:500}.map-footer>span{font-size:11px;color:#9aa0a6}
 @media(max-width:760px){.map-section .bases-legend{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 12px;font-size:11px;gap:12px}.zones-legend{gap:10px 16px;padding:12px;font-size:11px}.zones-legend small{width:100%;margin-left:0}.full-map-panel .map-footer{padding:12px;gap:4px}.map-footer>span{width:100%}.zone-label span{font-size:10px}}
+
+.sharing-status{display:block;padding:10px 20px;color:#aeb8c8;font-size:12px;border-top:1px solid #34383e}
+.shared-location-dot{display:block;width:20px;height:20px;border:3px solid #eafff6;border-radius:50%;background:#45cca0;box-shadow:0 0 0 5px #45cca025}
+.leaflet-tooltip.member-tooltip{background:#23272d;color:#e8edf5;border:1px solid #444b55;border-radius:7px;box-shadow:0 2px 8px #0005}
+.leaflet-tooltip-top.member-tooltip:before{border-top-color:#444b55}

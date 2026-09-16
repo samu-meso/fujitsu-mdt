@@ -16,7 +16,7 @@ export function useLiveLocation(){
     },reason=>{
       if(!active)return
       setError(reason.code===1?'Posizione negata. Consenti l’accesso alla posizione nelle impostazioni del browser.':reason.code===2?'Posizione non disponibile. Controlla che il GPS sia attivo.':'La posizione tarda ad arrivare. Rimango in attesa del GPS.')
-      if(reason.code===1)setEnabled(false)
+      if(reason.code===1){setEnabled(false);setLocation(null)}
     },{enableHighAccuracy:true,maximumAge:5_000,timeout:20_000})
     return()=>{active=false;navigator.geolocation.clearWatch(watch)}
   },[enabled])

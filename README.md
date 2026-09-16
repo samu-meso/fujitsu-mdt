@@ -19,7 +19,7 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato alle comuni mappe stradali e coerente con il resto dell'app. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps.
 
-- **La mia posizione** attiva il GPS del dispositivo con il permesso del browser. Il punto blu si aggiorna durante gli spostamenti e il cerchio mostra la precisione stimata. **Ferma posizione** interrompe il rilevamento; anche uscire dalla pagina Mappa interrompe il GPS. La posizione resta nel browser e non viene salvata in Supabase né condivisa con il gruppo. Richiede HTTPS o localhost.
+- **La mia posizione** attiva il GPS e condivide il punto con il nome agli utenti attivi del portale. Il cerchio mostra la precisione stimata. **Segui GPS** mantiene la mappa centrata durante gli spostamenti. **Ferma posizione** o uscire dalla pagina Mappa interrompe il rilevamento e rimuove il punto condiviso. Gli aggiornamenti del gruppo arrivano ogni 5 secondi; una posizione disconnessa scompare entro circa 50 secondi. Supabase conserva solo l'ultima posizione, senza storico degli spostamenti. Richiede HTTPS o localhost e la migrazione `20260916000100_live_locations.sql`.
 - **Presidi** mostra/nasconde quattro sedi permanenti nella città di Reggio Emilia. Ogni popup contiene indirizzo, fonte ufficiale e collegamento alle indicazioni. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
 - I **ping** spariscono dalla mappa esattamente 48 ore dopo `createdAt`, anche mentre la pagina è aperta. Modificare un ping o la data dell'evento non prolunga la durata. I report rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Non serve una nuova migrazione SQL o un cron di cancellazione.
 
@@ -58,7 +58,7 @@ La service role non deve mai avere prefisso `VITE_`, essere inserita nel browser
 
 ## 2. Applicare lo schema SQL
 
-Il file da eseguire è [20260915000100_radiolog_schema.sql](supabase/migrations/20260915000100_radiolog_schema.sql), seguito da [20260915000200_attachment_cleanup.sql](supabase/migrations/20260915000200_attachment_cleanup.sql).
+Il file da eseguire è [20260915000100_radiolog_schema.sql](supabase/migrations/20260915000100_radiolog_schema.sql), seguito da [20260915000200_attachment_cleanup.sql](supabase/migrations/20260915000200_attachment_cleanup.sql) e [20260916000100_live_locations.sql](supabase/migrations/20260916000100_live_locations.sql), infine [20260916000200_live_location_presence.sql](supabase/migrations/20260916000200_live_location_presence.sql).
 
 Metodo consigliato con Supabase CLI:
 

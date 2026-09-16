@@ -18,6 +18,8 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
   const element=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null)
   const reportLayer=useRef<L.LayerGroup|null>(null),baseLayer=useRef<L.LayerGroup|null>(null),locationLayer=useRef<L.LayerGroup|null>(null)
   const membersLayer=useRef<L.LayerGroup|null>(null)
+  const distanceLayer=useRef<L.LayerGroup|null>(null)
+  const [selectedUserId,setSelectedUserId]=useState<string|null>(null)
   const [followGPS,setFollowGPS]=useState(false)
   const zoneLayer=useRef<L.LayerGroup|null>(null)
   const centered=useRef(false),callbacks=useRef({onSelect,onCreate})
@@ -25,6 +27,9 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
   const [showZones,setShowZones]=useState(true)
   const {enabled,location,error,start,stop}=useLiveLocation()
   const {members,sharing,error:sharingError}=useSharedLocations(userId,enabled&&!error,location)
+  const selectedMember=members.find(member=>member.user_id===selectedUserId)
+  const distance=location&&selectedMember&&!error?L.latLng(location.latitude,location.longitude).distanceTo(L.latLng(selectedMember.latitude,selectedMember.longitude)):null
+  const distanceText=distance===null?'':distance<1000?`${Math.round(distance)} m`:`${(distance/1000).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} km`
   useEffect(()=>{callbacks.current={onSelect,onCreate}},[onSelect,onCreate])
   useEffect(()=>{
     if(!element.current)return
@@ -40,6 +45,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     baseLayer.current=L.layerGroup().addTo(instance)
     locationLayer.current=L.layerGroup().addTo(instance)
     membersLayer.current=L.layerGroup().addTo(instance)
+    distanceLayer.current=L.layerGroup().addTo(instance)
     instance.on('click',(event:L.LeafletMouseEvent)=>callbacks.current.onCreate(event.latlng.lat,event.latlng.lng))
     const observer=new ResizeObserver(()=>instance.invalidateSize());observer.observe(element.current)
     return()=>{observer.disconnect();instance.remove();map.current=null}
@@ -110,10 +116,15 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       const dot=document.createElement('span');dot.className='shared-location-dot'
       const icon=L.divIcon({className:'shared-location-marker',html:dot,iconSize:[20,20],iconAnchor:[10,10]})
       const label=document.createElement('span');label.textContent=member.profiles.username
-      const popup=document.createElement('div');popup.textContent=`${member.profiles.username} · precisione ±${Math.round(member.accuracy)} m`
-      L.marker([member.latitude,member.longitude],{icon,alt:member.profiles.username,zIndexOffset:900}).bindTooltip(label,{permanent:true,direction:'top',className:'member-tooltip'}).bindPopup(popup).addTo(membersLayer.current!)
+      L.marker([member.latitude,member.longitude],{icon,alt:member.profiles.username,title:'Clicca per mostrare o nascondere la distanza',zIndexOffset:900,bubblingMouseEvents:false}).bindTooltip(label,{permanent:true,direction:'top',className:'member-tooltip'}).on('click',()=>setSelectedUserId(current=>current===member.user_id?null:member.user_id)).addTo(membersLayer.current!)
     })
   },[members])
+
+  useEffect(()=>{
+    distanceLayer.current?.clearLayers()
+    if(!location||!selectedMember||error)return
+    L.polyline([[location.latitude,location.longitude],[selectedMember.latitude,selectedMember.longitude]],{color:'#73d5ab',weight:2,dashArray:'7 7',interactive:false,className:'user-distance-line'}).addTo(distanceLayer.current!)
+  },[location,selectedMember,error])
 
   return <div className="map-section">
     <div className="map-toolbar">
@@ -124,6 +135,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Attiva il GPS per condividere la posizione'}</span>
     </div>
     <span className="sharing-status" role="status">{sharing?'Posizione condivisa con il portale':enabled?'Condivisione in attesa del GPS':'Posizione non condivisa'} · {members.length} {members.length===1?'altro utente visibile':'altri utenti visibili'}</span>
+    {selectedMember&&<div className="user-distance" role="status"><span><strong>{selectedMember.profiles.username}</strong> · {distance!==null?<>Distanza in linea d’aria: <strong>{distanceText}</strong></>:error?'GPS non disponibile':enabled?'In attesa della tua posizione…':'Attiva la tua posizione per calcolare la distanza'}</span><button className="button secondary" onClick={()=>setSelectedUserId(null)}>Chiudi</button></div>}
     {sharingError&&<p className="location-error" role="alert">{sharingError}</p>}
     {error&&<p className="location-error" role="alert">{error}</p>}
     <div className={`map-wrap ${large?'large':''}`}>

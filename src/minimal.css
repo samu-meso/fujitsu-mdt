@@ -121,3 +121,6 @@ th{font-size:11px;background:#1a1d21}td{font-size:12px;padding:18px 16px}.table-
 .shared-location-dot{display:block;width:20px;height:20px;border:3px solid #eafff6;border-radius:50%;background:#45cca0;box-shadow:0 0 0 5px #45cca025}
 .leaflet-tooltip.member-tooltip{background:#23272d;color:#e8edf5;border:1px solid #444b55;border-radius:7px;box-shadow:0 2px 8px #0005}
 .leaflet-tooltip-top.member-tooltip:before{border-top-color:#444b55}
+.user-distance{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#73d5ab0d;border-top:1px solid #34383e;color:#c7d4df;font-size:13px}
+.user-distance strong{color:#8ee2bf}
+.user-distance .button{flex-shrink:0;padding:6px 12px;font-size:12px}

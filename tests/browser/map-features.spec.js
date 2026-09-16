@@ -163,3 +163,30 @@ test('il GPS di un utente fermo resta condiviso; gli utenti disconnessi scadono'
   await expect(page.locator('.sharing-status')).toContainText('Posizione condivisa')
   expect(live.deletes).toBe(0)
 })
+
+test('distanza in linea di aria aggiornata per entrambi e secondo clic per nasconderla',async({page})=>{
+  const live={members:[{user_id:'55555555-5555-4555-8555-555555555555',latitude:44.700,longitude:10.630,accuracy:12,updated_at:new Date().toISOString(),profiles:{username:'Utente online'}}],writes:[],deletes:0}
+  await prepare(page,live)
+  const marker=page.locator('.shared-location-marker')
+  await marker.click()
+  await expect(page.locator('.user-distance')).toContainText('Attiva la tua posizione')
+  await expect(page.getByRole('heading',{name:'Nuova segnalazione',exact:true})).toHaveCount(0)
+  await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
+  await page.evaluate(()=>window.__geoSet(44.698,10.630))
+  await expect(page.locator('.user-distance')).toContainText('222 m')
+  await expect(page.locator('.user-distance-line')).toHaveCount(1)
+  await page.evaluate(()=>window.__geoSet(44.699,10.630))
+  await expect(page.locator('.user-distance')).toContainText('111 m')
+  live.members[0]={...live.members[0],latitude:44.710,updated_at:new Date().toISOString()}
+  await expect(page.locator('.user-distance')).toContainText('1,22 km',{timeout:8000})
+  live.members[0]={...live.members[0],latitude:44.700,updated_at:new Date().toISOString()}
+  await expect(page.locator('.user-distance')).toContainText('111 m',{timeout:8000})
+  await marker.click()
+  await expect(page.locator('.user-distance')).toHaveCount(0)
+  await expect(page.locator('.user-distance-line')).toHaveCount(0)
+  await marker.click()
+  await expect(page.locator('.user-distance')).toContainText('111 m')
+  live.members=[]
+  await expect(page.locator('.user-distance')).toHaveCount(0,{timeout:8000})
+  await expect(page.locator('.user-distance-line')).toHaveCount(0)
+})

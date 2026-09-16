@@ -6,7 +6,7 @@ export function useActivePings(reports:Report[]){
   const [now,setNow]=useState(Date.now)
   useEffect(()=>{
     const refresh=()=>setNow(Date.now())
-    const remaining=reports.map(r=>pingExpiresAt(r.createdAt)-Date.now()).filter(value=>value>0)
+    const remaining=reports.map(r=>pingExpiresAt(r.createdAt,r.pingDurationHours)-Date.now()).filter(value=>Number.isFinite(value)&&value>0)
     // Schedule at the next expiry; also refresh when returning to a background tab.
     const timer=remaining.length?window.setTimeout(refresh,Math.min(...remaining,60_000)):undefined
     document.addEventListener('visibilitychange',refresh)
@@ -17,5 +17,5 @@ export function useActivePings(reports:Report[]){
       window.removeEventListener('focus',refresh)
     }
   },[reports,now])
-  return reports.filter(r=>isActivePing(r.createdAt,Math.max(now,Date.now())))
+  return reports.filter(r=>isActivePing(r.createdAt,Math.max(now,Date.now()),r.pingDurationHours))
 }

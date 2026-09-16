@@ -76,10 +76,11 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       const title=document.createElement('strong');title.textContent=report.title
       const meta=document.createElement('small');meta.textContent=`${type?.name} · ${date(report.eventDate)}`
       const description=document.createElement('p');description.textContent=report.description.slice(0,100)
-      const expiry=document.createElement('small');expiry.textContent=`Visibile fino al ${date(new Date(pingExpiresAt(report.createdAt)).toISOString())}`
+      const expiresAt=pingExpiresAt(report.createdAt,report.pingDurationHours)
+      const expiry=document.createElement('small');expiry.textContent=expiresAt===Infinity?'Segnalazione permanente':`Visibile fino al ${date(new Date(expiresAt).toISOString())}`
       const button=document.createElement('button');button.textContent='Apri dettagli →';button.onclick=()=>callbacks.current.onSelect(report.id)
       content.append(title,meta,description,expiry,button)
-      L.marker([report.latitude,report.longitude],{icon,alt:report.title}).bindPopup(content).addTo(reportLayer.current!)
+      L.marker([report.latitude,report.longitude],{icon,alt:report.title,title:report.title,bubblingMouseEvents:false}).bindPopup(content).addTo(reportLayer.current!)
     })
   },[reports,types])
 

@@ -10,7 +10,7 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
     {id:'22222222-2222-4222-8222-222222222222',title:'Ping attivo',created_at:new Date(now-3600000).toISOString()},
     {id:'33333333-3333-4333-8333-333333333333',title:'Ping scaduto',created_at:new Date(now-49*3600000).toISOString()},
     {id:'44444444-4444-4444-8444-444444444444',title:'Ping in scadenza',created_at:new Date(now-48*3600000+60000).toISOString()},
-  ].map(report=>({...report,description:'Fixture locale',event_date:new Date(now).toISOString(),latitude:44.698,longitude:10.630,address:'Reggio Emilia',type_id:'radio',author_id:userId,dossier_id:null,updated_at:new Date(now).toISOString(),profiles:{username:'Map test'}}))
+  ].map(report=>({...report,description:'Fixture locale',event_date:new Date(now).toISOString(),latitude:44.698,longitude:10.630,address:'Reggio Emilia',type_id:'radio',author_id:userId,dossier_id:null,updated_at:new Date(now).toISOString(),profiles:{username:'Map test'},...live.reportOverrides?.[report.title]}))
   await page.route('**/auth/v1/**',route=>{
     const path=new URL(route.request().url()).pathname
     if(path.endsWith('/user'))return route.fulfill({json:user})
@@ -25,7 +25,7 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
       if(route.request().method()==='DELETE'){live.deletes++;return route.fulfill({status:204,body:''})}
       return route.fulfill({json:live.members})
     }
-    const data=table==='profiles'?(url.searchParams.has('id')?profile:[profile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true}]:[]
+    const data=table==='profiles'?(url.searchParams.has('id')?profile:[profile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
     return route.fulfill({json:data})
   })
   // Every geolocation value is simulated; tests never use device GPS or real data.
@@ -213,4 +213,39 @@ test('punti sovrapposti e nome utente non aprono precisione o nuova segnalazione
   // Background clicks still allow creating a report.
   await page.locator('.leaflet-map').click({position:{x:100,y:150}})
   await expect(page.getByRole('dialog',{name:'Dettagli segnalazione'})).toBeVisible()
+})
+
+test('emergenze di 24 ore scadono, permanenti restano e il modulo offre tre durate',async({page})=>{
+  const live={members:[],writes:[],deletes:0,reportOverrides:{
+    'Ping attivo':{type_id:'emergency',ping_duration_hours:24,created_at:new Date(Date.now()-25*3600000).toISOString()},
+    'Ping scaduto':{type_id:'emergency',ping_duration_hours:null,latitude:44.703,longitude:10.640},
+  }}
+  await prepare(page,live)
+  await expect(page.getByTitle('Ping attivo',{exact:true})).toHaveCount(0)
+  await page.getByTitle('Ping scaduto',{exact:true}).click()
+  await expect(page.locator('.map-popup')).toContainText('Segnalazione permanente')
+  await page.locator('.leaflet-popup-close-button').click()
+  await page.getByRole('button',{name:'Nuova segnalazione',exact:true}).click()
+  await expect(page.getByLabel('Durata sulla mappa')).toHaveCount(0)
+  await page.locator('.detail-form select[name="typeId"]').selectOption('emergency')
+  const duration=page.getByLabel('Durata sulla mappa')
+  await expect(duration).toHaveValue('48')
+  await duration.selectOption('24')
+  await expect(duration).toHaveValue('24')
+  await duration.selectOption('permanent')
+  await expect(duration).toHaveValue('permanent')
+  const submitted=[]
+  await page.route('**/rest/v1/reports?**',async route=>{
+    if(route.request().method()!=='POST')return route.fallback()
+    submitted.push(route.request().postDataJSON())
+    return route.fulfill({status:400,json:{message:'Salvataggio simulato per test'}})
+  })
+  await page.getByLabel('Titolo',{exact:true}).fill('Emergenza di test')
+  await page.getByLabel('Descrizione',{exact:true}).fill('Descrizione di test')
+  await page.getByRole('button',{name:'Salva segnalazione',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('Salvataggio simulato')
+  expect(submitted.at(-1)).toMatchObject({type_id:'emergency',ping_duration_hours:null})
+  await duration.selectOption('24')
+  await page.getByRole('button',{name:'Salva segnalazione',exact:true}).click()
+  await expect.poll(()=>submitted.at(-1)?.ping_duration_hours).toBe(24)
 })

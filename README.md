@@ -22,7 +22,7 @@ La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato 
 - **La mia posizione** attiva il GPS e condivide il punto con il nome agli utenti attivi del portale. Il cerchio mostra la precisione stimata. **Segui GPS** mantiene la mappa centrata durante gli spostamenti. **Ferma posizione** o uscire dalla pagina Mappa interrompe il rilevamento e rimuove il punto condiviso. Gli aggiornamenti del gruppo arrivano ogni 5 secondi; una posizione disconnessa scompare entro circa 50 secondi. Supabase conserva solo l'ultima posizione, senza storico degli spostamenti. Richiede HTTPS o localhost e la migrazione `20260916000100_live_locations.sql`.
 - **Presidi** mostra/nasconde quattro sedi permanenti nella città di Reggio Emilia. Ogni popup contiene indirizzo, fonte ufficiale e collegamento alle indicazioni. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
 - Cliccare sul punto di un utente mostra la distanza in linea d'aria dalla propria posizione e una linea tratteggiata. La distanza si aggiorna con il proprio GPS e con gli aggiornamenti del gruppo ogni 5 secondi. Un secondo clic sullo stesso utente nasconde la distanza. Serve avere la propria posizione attiva.
-- I **ping** spariscono dalla mappa esattamente 48 ore dopo `createdAt`, anche mentre la pagina è aperta. Modificare un ping o la data dell'evento non prolunga la durata. I report rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Non serve una nuova migrazione SQL o un cron di cancellazione.
+- Le **emergenze** offrono la durata sulla mappa: 24 ore, 48 ore (predefinita) o permanente. Le ore partono da `createdAt`; modificare testo o data dell'evento non riavvia il conteggio. La durata si può cambiare anche in modifica. Gli altri ping durano 48 ore. I report scaduti rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Applicare anche la migrazione `20260916000300_report_duration.sql`.
 
 Presidi verificati il 16 settembre 2026, dati in [emergencyBases.ts](src/emergencyBases.ts):
 
@@ -58,6 +58,8 @@ UPLOAD_MAX_MB=10
 La service role non deve mai avere prefisso `VITE_`, essere inserita nel browser o pubblicata su GitHub.
 
 ## 2. Applicare lo schema SQL
+
+Per le durate delle emergenze applicare infine [20260916000300_report_duration.sql](supabase/migrations/20260916000300_report_duration.sql).
 
 Il file da eseguire è [20260915000100_radiolog_schema.sql](supabase/migrations/20260915000100_radiolog_schema.sql), seguito da [20260915000200_attachment_cleanup.sql](supabase/migrations/20260915000200_attachment_cleanup.sql) e [20260916000100_live_locations.sql](supabase/migrations/20260916000100_live_locations.sql), infine [20260916000200_live_location_presence.sql](supabase/migrations/20260916000200_live_location_presence.sql).
 

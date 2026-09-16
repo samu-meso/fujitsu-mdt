@@ -136,3 +136,9 @@ th{font-size:11px;background:#1a1d21}td{font-size:12px;padding:18px 16px}.table-
 .map-section .base-key{border-radius:9px;background:#252b33;border-color:#ffffff18;padding:0}
 .map-section .base-key svg{width:18px;height:18px}
 @media(max-width:760px){.map-section .bases-legend{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.map-section .map-pin{position:absolute;top:1px;left:2px;display:grid;place-items:center;width:36px;height:36px;transform:none;border:1.5px solid #a9ceff;border-radius:12px;background:linear-gradient(145deg,#508fea,#2562bc);color:#f4f8ff;box-shadow:0 4px 10px #0007,inset 0 1px 0 #ffffff25;transition:filter .15s}
+.map-section .map-pin.red{background:linear-gradient(145deg,#e97570,#b63e48);border-color:#ffb8b2;color:#fff5f3;box-shadow:0 4px 10px #0007,inset 0 1px 0 #ffffff25}
+.map-section .map-pin::after{content:'';position:absolute;bottom:-8px;left:12px;width:10px;height:8px;background:#2562bc;clip-path:polygon(0 0,100% 0,50% 100%)}
+.map-section .map-pin.red::after{background:#b63e48}
+.map-section .map-pin svg{width:22px;height:22px;transform:none}
+.custom-marker:hover .map-pin,.custom-marker:focus .map-pin{filter:brightness(1.15)}

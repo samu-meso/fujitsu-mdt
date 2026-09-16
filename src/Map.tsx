@@ -6,6 +6,7 @@ import type {Report,ReportType} from './types'
 import {date} from './api'
 import {emergencyBases} from './emergencyBases'
 import {baseIconSvg} from './baseIcons'
+import {reportIconSvg} from './reportIcons'
 import {pingExpiresAt} from './pings'
 import {useLiveLocation} from './useLiveLocation'
 import {mapZones} from './mapZones'
@@ -72,7 +73,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
     reportLayer.current?.clearLayers()
     reports.forEach(report=>{
       const type=types.find(item=>item.id===report.typeId)
-      const icon=L.divIcon({className:'custom-marker',html:`<span class="map-pin ${type?.icon==='triangle'?'red':''}"><span>${type?.icon==='triangle'?'!':'⌁'}</span></span>`,iconSize:[34,40],iconAnchor:[17,40]})
+      const icon=L.divIcon({className:'custom-marker',html:`<span class="map-pin ${type?.icon==='triangle'?'red':''}">${reportIconSvg(type?.icon==='triangle')}</span>`,iconSize:[40,48],iconAnchor:[20,46],popupAnchor:[0,-38]})
       const content=document.createElement('div');content.className='map-popup'
       const title=document.createElement('strong');title.textContent=report.title
       const meta=document.createElement('small');meta.textContent=`${type?.name} · ${date(report.eventDate)}`

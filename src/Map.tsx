@@ -7,6 +7,7 @@ import {date} from './api'
 import {emergencyBases} from './emergencyBases'
 import {pingExpiresAt} from './pings'
 import {useLiveLocation} from './useLiveLocation'
+import {mapZones} from './mapZones'
 
 function resetCity(instance:L.Map){
   instance.fitBounds(emergencyBases.map(base=>[base.latitude,base.longitude] as L.LatLngTuple),{padding:[36,70],maxZoom:13})
@@ -15,8 +16,10 @@ function resetCity(instance:L.Map){
 export default function Map({reports,types,onSelect,onCreate,large=false}:{reports:Report[];types:ReportType[];onSelect:(id:string)=>void;onCreate:(lat:number,lng:number)=>void;large?:boolean}){
   const element=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null)
   const reportLayer=useRef<L.LayerGroup|null>(null),baseLayer=useRef<L.LayerGroup|null>(null),locationLayer=useRef<L.LayerGroup|null>(null)
+  const zoneLayer=useRef<L.LayerGroup|null>(null)
   const centered=useRef(false),callbacks=useRef({onSelect,onCreate})
   const [showBases,setShowBases]=useState(true)
+  const [showZones,setShowZones]=useState(true)
   const {enabled,location,error,start,stop}=useLiveLocation()
   useEffect(()=>{callbacks.current={onSelect,onCreate}},[onSelect,onCreate])
   useEffect(()=>{
@@ -26,6 +29,9 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     map.current=instance
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(instance)
     L.control.zoom({position:'bottomright'}).addTo(instance)
+    instance.createPane('zones').style.zIndex='350'
+    instance.getPane('zones')!.style.pointerEvents='none'
+    zoneLayer.current=L.layerGroup().addTo(instance)
     reportLayer.current=L.layerGroup().addTo(instance)
     baseLayer.current=L.layerGroup().addTo(instance)
     locationLayer.current=L.layerGroup().addTo(instance)
@@ -33,6 +39,16 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     const observer=new ResizeObserver(()=>instance.invalidateSize());observer.observe(element.current)
     return()=>{observer.disconnect();instance.remove();map.current=null}
   },[])
+
+  useEffect(()=>{
+    zoneLayer.current?.clearLayers()
+    if(!showZones)return
+    mapZones.forEach(zone=>{
+      L.polygon(zone.points,{pane:'zones',color:zone.color,weight:1.5,opacity:0.55,fillColor:zone.color,fillOpacity:0.12,interactive:false,className:'map-zone'}).addTo(zoneLayer.current!)
+      const icon=L.divIcon({className:'zone-label',html:`<span style="--zone-color:${zone.color}">${zone.name.toUpperCase()}</span>`,iconSize:[70,24],iconAnchor:[35,12]})
+      L.marker(zone.label,{icon,pane:'zones',interactive:false,keyboard:false}).addTo(zoneLayer.current!)
+    })
+  },[showZones])
 
   useEffect(()=>{
     reportLayer.current?.clearLayers()
@@ -84,6 +100,7 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     <div className="map-toolbar">
       <button className={`button secondary ${enabled?'selected':''}`} aria-pressed={enabled} onClick={enabled?stop:start}><LocateFixed size={16}/>{enabled?'Ferma posizione':'La mia posizione'}</button>
       <button className={`button secondary ${showBases?'selected':''}`} aria-pressed={showBases} onClick={()=>setShowBases(value=>!value)}><Building2 size={16}/>Presidi</button>
+      <button className={`button secondary ${showZones?'selected':''}`} aria-pressed={showZones} onClick={()=>setShowZones(value=>!value)}>Zone</button>
       <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Posizione visibile solo a te'}</span>
     </div>
     {error&&<p className="location-error" role="alert">{error}</p>}
@@ -94,5 +111,6 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
       <div className="map-legend"><span><i className="dot blue"/>Scansione frequenze</span><span><i className="dot red"/>Emergenza</span></div>
     </div>
     {showBases&&<div className="bases-legend" aria-label="Legenda presidi">{emergencyBases.map(base=><span key={base.id}><i className={`base-key ${base.category}`}>{base.symbol}</i>{base.label}</span>)}</div>}
+    {showZones&&<div className="zones-legend" aria-label="Legenda zone">{mapZones.map(zone=><span key={zone.id}><i style={{backgroundColor:zone.color}}/>{zone.name}</span>)}<small>Settori indicativi dell’area urbana</small></div>}
   </div>
 }

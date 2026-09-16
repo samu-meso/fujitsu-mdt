@@ -45,6 +45,13 @@ async function prepare(page){
 test('presidi permanenti e ping scaduti con storico conservato',async({page})=>{
   await prepare(page)
   await expect(page.locator('.base-marker')).toHaveCount(4)
+  await expect(page.locator('.map-zone')).toHaveCount(4)
+  await expect(page.locator('.zone-label')).toHaveCount(4)
+  await page.getByRole('button',{name:'Zone',exact:true}).click()
+  await expect(page.locator('.map-zone')).toHaveCount(0)
+  await expect(page.locator('.base-marker')).toHaveCount(4)
+  await page.getByRole('button',{name:'Zone',exact:true}).click()
+  await expect(page.locator('.map-zone')).toHaveCount(4)
   await expect(page.locator('.custom-marker')).toHaveCount(2)
   await page.screenshot({path:'test-results/map-desktop.png',fullPage:true})
   await expect(page.getByAltText('Ping scaduto',{exact:true})).toHaveCount(0)
@@ -86,7 +93,7 @@ test('un ping scompare a scadenza senza ricaricare, i presidi restano',async({pa
   await prepare(page)
   await page.clock.fastForward(65000)
   await expect(page.locator('.custom-marker')).toHaveCount(1)
-  await expect(page.locator('.map-footer')).toContainText('1 ping attivi')
+  await expect(page.locator('.map-footer')).toContainText('1 ping attivo')
   await expect(page.locator('.base-marker')).toHaveCount(4)
 })
 

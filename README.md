@@ -15,6 +15,8 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Funzioni della mappa
 
+**Zone** mostra/nasconde quattro settori indicativi dell'area urbana: Nord blu, Sud arancione, Est viola e Ovest verde. La suddivisione parte dal centro di Reggio Emilia e colora l'area con trasparenza; non rappresenta i confini amministrativi. Le zone non intercettano i clic sulla mappa e non modificano ping o presidi.
+
 La mappa ha un tema scuro con controlli arrotondati e marker colorati, ispirato alle comuni mappe stradali e coerente con il resto dell'app. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps.
 
 - **La mia posizione** attiva il GPS del dispositivo con il permesso del browser. Il punto blu si aggiorna durante gli spostamenti e il cerchio mostra la precisione stimata. **Ferma posizione** interrompe il rilevamento; anche uscire dalla pagina Mappa interrompe il GPS. La posizione resta nel browser e non viene salvata in Supabase né condivisa con il gruppo. Richiede HTTPS o localhost.

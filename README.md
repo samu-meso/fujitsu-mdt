@@ -15,6 +15,8 @@ Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md
 
 ## Funzioni della mappa
 
+La mappa ha uno stile chiaro con controlli bianchi, pulsanti arrotondati e marker colorati, ispirato alle comuni mappe stradali. Continua a usare Leaflet e OpenStreetMap: non richiede chiavi Google o fatturazione Google Maps. Il resto dell'app mantiene il tema minimale scuro.
+
 - **La mia posizione** attiva il GPS del dispositivo con il permesso del browser. Il punto blu si aggiorna durante gli spostamenti e il cerchio mostra la precisione stimata. **Ferma posizione** interrompe il rilevamento; anche uscire dalla pagina Mappa interrompe il GPS. La posizione resta nel browser e non viene salvata in Supabase né condivisa con il gruppo. Richiede HTTPS o localhost.
 - **Presidi** mostra/nasconde quattro sedi permanenti nella città di Reggio Emilia. Ogni popup contiene indirizzo, fonte ufficiale e collegamento alle indicazioni. L'ingresso del pronto soccorso è distinto dall'ingresso generale dell'ospedale. Le sedi non vengono modificate dai filtri sulle segnalazioni.
 - I **ping** spariscono dalla mappa esattamente 48 ore dopo `createdAt`, anche mentre la pagina è aperta. Modificare un ping o la data dell'evento non prolunga la durata. I report rimangono nello storico Segnalazioni e nei fascicoli collegati; i presidi permanenti non scadono. Non serve una nuova migrazione SQL o un cron di cancellazione.

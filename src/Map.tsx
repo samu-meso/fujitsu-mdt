@@ -38,7 +38,7 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     reportLayer.current?.clearLayers()
     reports.forEach(report=>{
       const type=types.find(item=>item.id===report.typeId)
-      const icon=L.divIcon({className:'custom-marker',html:`<span class="map-pin ${type?.icon==='triangle'?'red':''}">${type?.icon==='triangle'?'!':'⌁'}</span>`,iconSize:[34,40],iconAnchor:[17,40]})
+      const icon=L.divIcon({className:'custom-marker',html:`<span class="map-pin ${type?.icon==='triangle'?'red':''}"><span>${type?.icon==='triangle'?'!':'⌁'}</span></span>`,iconSize:[34,40],iconAnchor:[17,40]})
       const content=document.createElement('div');content.className='map-popup'
       const title=document.createElement('strong');title.textContent=report.title
       const meta=document.createElement('small');meta.textContent=`${type?.name} · ${date(report.eventDate)}`
@@ -90,7 +90,7 @@ export default function Map({reports,types,onSelect,onCreate,large=false}:{repor
     <div className={`map-wrap ${large?'large':''}`}>
       <div ref={element} className="leaflet-map" aria-label="Mappa interattiva di Reggio Emilia e provincia"/>
       <div className="map-location"><span className="live-dot"/>Reggio Emilia</div>
-      <button className="map-center" aria-label={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} title={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} onClick={()=>{if(!map.current)return;if(location)map.current.setView([location.latitude,location.longitude],16);else resetCity(map.current)}}>⌖</button>
+      <button className="map-center" aria-label={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} title={location?'Ricentra sulla mia posizione':'Ricentra su Reggio Emilia'} onClick={()=>{if(!map.current)return;if(location)map.current.setView([location.latitude,location.longitude],16);else resetCity(map.current)}}><LocateFixed size={20}/></button>
       <div className="map-legend"><span><i className="dot blue"/>Scansione frequenze</span><span><i className="dot red"/>Emergenza</span></div>
     </div>
     {showBases&&<div className="bases-legend" aria-label="Legenda presidi">{emergencyBases.map(base=><span key={base.id}><i className={`base-key ${base.category}`}>{base.symbol}</i>{base.label}</span>)}</div>}

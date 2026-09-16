@@ -430,72 +430,56 @@ test('geocodifica non disponibile permette comunque di salvare una segnalazione'
   expect(saved).toMatchObject({title:'Segnalazione urgente',address:'',latitude:44.698,longitude:10.632})
 })
 
-test('suoni distinti per avviso ed emergenza e nessuna ripetizione a ogni polling',async({page})=>{
-  await page.clock.install()
+test('file audio reali riproducono avvisi ripetuti ed emergenze',async({page})=>{
   await page.addInitScript(()=>{
-    window.__tones=[]
-    window.AudioContext=class{
-      state='suspended';currentTime=0;destination={}
-      resume(){this.state='running';return Promise.resolve()}
-      close(){this.state='closed';return Promise.resolve()}
-      createOscillator(){return {frequency:{setValueAtTime:value=>window.__tones.push(value)},connect(){},disconnect(){},start(){},stop(){}}}
-      createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}
+    window.__sounds=[]
+    const play=HTMLMediaElement.prototype.play
+    HTMLMediaElement.prototype.play=function(){
+      if(this.volume>0)this.addEventListener('ended',()=>window.__sounds.push(this.src.split('/').pop()),{once:true})
+      return play.call(this)
     }
   })
-  const live={members:[],writes:[],deletes:0,inbox:[]}
-  await prepare(page,live)
+  await prepare(page,{members:[],writes:[],deletes:0,inbox:[]})
   await page.locator('.portal-alert-button').click()
   await page.getByRole('button',{name:'Prova suono avviso'}).click()
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([740,990])
-  await page.evaluate(()=>window.__tones=[])
+  await expect.poll(()=>page.evaluate(()=>window.__sounds)).toEqual(['info.wav'])
+  await page.getByRole('button',{name:'Prova suono avviso'}).click()
+  await expect.poll(()=>page.evaluate(()=>window.__sounds)).toEqual(['info.wav','info.wav'])
   await page.getByRole('button',{name:'Prova suono emergenza'}).click()
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([880,660,880,660,880,660])
-  await page.getByRole('button',{name:'Chiudi alert',exact:true}).click()
-  await page.evaluate(()=>window.__tones=[])
-  live.inbox.push({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'info',message:'Avviso sonoro',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
-  await page.clock.fastForward(2000)
-  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([740,990])
-  await page.clock.fastForward(6000)
-  expect(await page.evaluate(()=>window.__tones)).toEqual([740,990])
-  await page.getByRole('button',{name:'Ho letto',exact:true}).click()
-  await page.evaluate(()=>window.__tones=[])
-  live.inbox.push({id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'emergency',message:'Emergenza sonora',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
-  await page.clock.fastForward(2000)
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([880,660,880,660,880,660])
+  await expect.poll(()=>page.evaluate(()=>window.__sounds),{timeout:7000}).toEqual(['info.wav','info.wav','emergency.wav'])
 })
 
-test('audio mobile WebKit si sblocca a touchend e recupera un contesto interrotto',async({page})=>{
+test('mobile recupera un alert bloccato e riproduce anche il successivo senza ripetere il polling',async({page})=>{
   await page.setViewportSize({width:390,height:844})
   await page.addInitScript(()=>{
-    window.__tones=[];window.__touchAllowed=false;window.__warmCount=0
-    document.addEventListener('touchend',()=>{window.__touchAllowed=true;queueMicrotask(()=>window.__touchAllowed=false)},true)
-    Object.defineProperty(window,'AudioContext',{value:undefined,configurable:true})
-    window.webkitAudioContext=class{
-      state='suspended';currentTime=0;destination={};sampleRate=44100;warmed=false
-      constructor(){window.__mobileAudio=this}
-      resume(){if(window.__touchAllowed&&this.warmed){this.state='running';this.onstatechange?.()}return Promise.resolve()}
-      close(){this.state='closed';return Promise.resolve()}
-      createBuffer(){return {}}
-      createBufferSource(){return {connect(){},disconnect(){},start:()=>{if(window.__touchAllowed){this.warmed=true;window.__warmCount++}}}}
-      createOscillator(){return {frequency:{setValueAtTime:value=>window.__tones.push(value)},connect(){},disconnect(){},start(){},stop(){}}}
-      createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}
+    window.__sounds=[];window.__block=false
+    HTMLMediaElement.prototype.play=function(){
+      if(window.__block)return Promise.reject(new DOMException('Blocked','NotAllowedError'))
+      if(this.volume>0)window.__sounds.push({file:this.src.split('/').pop(),time:this.currentTime})
+      return Promise.resolve()
     }
+    HTMLMediaElement.prototype.pause=function(){}
   })
   const live={members:[],writes:[],deletes:0,inbox:[]}
   await prepare(page,live)
   await page.locator('.portal-alert-button').click()
-  await expect(page.getByRole('button',{name:'Attiva suoni',exact:true})).toBeVisible()
-  await page.getByRole('button',{name:'Attiva suoni',exact:true}).dispatchEvent('touchend')
-  await expect(page.getByText('Suoni attivi',{exact:true})).toBeVisible()
-  expect(await page.evaluate(()=>window.__warmCount)).toBeGreaterThan(0)
-  await page.getByRole('button',{name:'Prova suono avviso'}).click()
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([740,990])
   await page.getByRole('button',{name:'Chiudi alert',exact:true}).click()
-  await page.evaluate(()=>{window.__tones=[];window.__mobileAudio.state='interrupted';window.__mobileAudio.warmed=false;window.__mobileAudio.onstatechange?.()})
-  live.inbox.push({id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'emergency',message:'Emergenza dopo interruzione',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
-  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
-  expect(await page.evaluate(()=>window.__tones)).toEqual([])
-  await page.getByRole('dialog',{name:'Alert ricevuto'}).getByRole('button',{name:'Attiva suoni',exact:true}).dispatchEvent('touchend')
-  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([880,660,880,660,880,660])
+  await page.evaluate(()=>{window.__sounds=[];window.__block=true})
+  const make=(id,kind)=>({id,sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind,message:'Test audio mobile',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
+  live.inbox.push(make('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','emergency'))
+  const received=page.getByRole('dialog',{name:'Alert ricevuto'})
+  await expect(received).toBeVisible()
+  await expect(received.getByText('Audio bloccato: tocca Riproduci suono.')).toBeVisible()
+  expect(await page.evaluate(()=>window.__sounds)).toEqual([])
+  await page.evaluate(()=>window.__block=false)
+  await received.getByRole('button',{name:'Riproduci suono'}).click()
+  await expect.poll(()=>page.evaluate(()=>window.__sounds)).toEqual([{file:'emergency.wav',time:0}])
+  await page.waitForTimeout(2200)
+  expect(await page.evaluate(()=>window.__sounds.length)).toBe(1)
+  await received.getByRole('button',{name:'Ho letto',exact:true}).click()
+  live.inbox.push(make('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','info'))
+  await expect(received).toBeVisible()
+  await expect.poll(()=>page.evaluate(()=>window.__sounds)).toEqual([{file:'emergency.wav',time:0},{file:'info.wav',time:0}])
+  await received.getByRole('button',{name:'Riproduci suono'}).click()
+  await expect.poll(()=>page.evaluate(()=>window.__sounds.length)).toBe(3)
 })

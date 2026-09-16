@@ -2,71 +2,72 @@ import {useCallback,useEffect,useRef,useState} from 'react'
 
 type Kind='info'|'emergency'
 export function useAlertSound(id:string|undefined,kind:Kind|undefined){
-  const context=useRef<AudioContext|null>(null),played=useRef(new Set<string>())
-  const pending=useRef<{id:string;kind:Kind}|null>(null)
+  const players=useRef<Partial<Record<Kind,HTMLAudioElement>>>({})
+  const played=useRef(new Set<string>()),pending=useRef<{id:string;kind:Kind}|null>(null)
+  const attempt=useRef(0),priming=useRef(false),enabled=useRef(false)
   const [ready,setReady]=useState(false)
-  const tone=useCallback((type:Kind)=>{
-    const audio=context.current
-    if(!audio||audio.state!=='running')return
-    const notes=type==='emergency'?[880,660,880,660,880,660]:[740,990]
-    notes.forEach((frequency,index)=>{
-      const start=audio.currentTime+index*(type==='emergency'?0.24:0.2)
-      const oscillator=audio.createOscillator(),gain=audio.createGain()
-      oscillator.type='sine';oscillator.frequency.setValueAtTime(frequency,start)
-      gain.gain.setValueAtTime(0.0001,start);gain.gain.exponentialRampToValueAtTime(type==='emergency'?0.16:0.12,start+0.015);gain.gain.exponentialRampToValueAtTime(0.0001,start+0.18)
-      oscillator.connect(gain);gain.connect(audio.destination)
-      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect()}
-      oscillator.start(start);oscillator.stop(start+0.2)
-    })
-  },[])
-  const flush=useCallback(()=>{
-    if(context.current?.state!=='running')return
-    setReady(true)
-    const alert=pending.current
-    if(alert&&!played.current.has(alert.id)){
-      tone(alert.kind);played.current.add(alert.id);pending.current=null
+  const player=useCallback((type:Kind)=>{
+    if(!players.current[type]){
+      const audio=new Audio(`/sounds/${type}.wav`);audio.preload='auto'
+      audio.addEventListener('error',()=>{enabled.current=false;setReady(false)})
+      players.current[type]=audio
     }
-  },[tone])
-  const unlock=useCallback(()=>{
+    return players.current[type]!
+  },[])
+  const play=useCallback((type:Kind,alertId?:string)=>{
+    const token=++attempt.current
+    Object.values(players.current).forEach(audio=>audio.pause())
+    const audio=player(type);audio.volume=1;audio.currentTime=0
     try{
-      const Constructor=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext
-      if(!Constructor)return Promise.resolve()
-      if(!context.current||context.current.state==='closed'){
-        const audio=new Constructor();context.current=audio
-        audio.onstatechange=()=>{if(context.current===audio){setReady(audio.state==='running');flush()}}
-      }
-      const audio=context.current
-      if(audio.state==='running'){flush();return Promise.resolve()}
-      setReady(false)
-      // Start an actual one-frame silent buffer inside the touch/click handler.
-      // Calling resume alone, or starting playback after awaiting it, fails on some iPhones.
-      if(audio.createBufferSource&&audio.createBuffer){
-        const source=audio.createBufferSource();source.buffer=audio.createBuffer(1,1,audio.sampleRate||44100)
-        source.connect(audio.destination);source.onended=()=>source.disconnect();source.start(0)
-      }
-      return audio.resume().then(()=>{if(context.current===audio)flush()}).catch(()=>{if(context.current===audio)setReady(false)})
-    }catch{return Promise.resolve()}
-  },[flush])
+      return audio.play().then(()=>{
+        if(token!==attempt.current)return
+        enabled.current=true;setReady(true)
+        if(alertId){played.current.add(alertId);if(pending.current?.id===alertId)pending.current=null}
+      }).catch(()=>{if(token===attempt.current){enabled.current=false;setReady(false)}})
+    }catch{enabled.current=false;setReady(false);return Promise.resolve()}
+  },[player])
+  const unlock=useCallback(()=>{
+    const alert=pending.current
+    if(alert)return play(alert.kind,alert.id)
+    if(enabled.current||priming.current)return Promise.resolve()
+    priming.current=true
+    const token=attempt.current
+    // Start both media elements inside the gesture, before awaiting playback.
+    const jobs=(['info','emergency'] as Kind[]).map(type=>{
+      const audio=player(type);audio.volume=0
+      try{return audio.play().then(()=>{if(token===attempt.current){audio.pause();audio.currentTime=0;audio.volume=1}return true}).catch(()=>false)}catch{return Promise.resolve(false)}
+    })
+    return Promise.all(jobs).then(results=>{
+      priming.current=false
+      if(token===attempt.current){enabled.current=results.every(Boolean);setReady(enabled.current)}
+    })
+  },[play,player])
   useEffect(()=>{
-    const activate=()=>{void unlock()}
-    // Mobile touch activation is granted at touchend/click, not necessarily pointerdown.
-    const events=['touchend','click','pointerup','keydown']
+    const activate=(event:Event)=>{
+      // Explicit sound controls call play themselves; avoid two competing starts.
+      if((event.target as Element)?.closest?.('[data-sound-control]'))return
+      void unlock()
+    }
+    const events=['touchend','click','keydown']
     events.forEach(event=>document.addEventListener(event,activate,true))
-    const restore=()=>{if(document.visibilityState==='visible'&&context.current)activate()}
-    document.addEventListener('visibilitychange',restore);window.addEventListener('focus',restore)
-    if(navigator.userActivation?.hasBeenActive)activate()
+    const hide=()=>{
+      if(document.visibilityState!=='visible'){
+        ++attempt.current;Object.values(players.current).forEach(audio=>audio.pause())
+        enabled.current=false;setReady(false)
+      }
+    }
+    document.addEventListener('visibilitychange',hide)
     return()=>{
+      ++attempt.current
       events.forEach(event=>document.removeEventListener(event,activate,true))
-      document.removeEventListener('visibilitychange',restore);window.removeEventListener('focus',restore)
-      const audio=context.current;context.current=null
-      if(audio){audio.onstatechange=null;void audio.close().catch(()=>{})}
+      document.removeEventListener('visibilitychange',hide)
+      Object.values(players.current).forEach(audio=>{audio.pause();audio.removeAttribute('src');audio.load()})
+      players.current={};enabled.current=false
     }
   },[unlock])
   useEffect(()=>{
     pending.current=id&&kind&&!played.current.has(id)?{id,kind}:null
-    if(context.current?.state==='running')flush()
-    else if(pending.current&&context.current)void unlock()
-  },[id,kind,flush,unlock])
-  async function preview(type:Kind){await unlock();tone(type)}
-  return {ready,unlock,preview}
+    if(pending.current)void play(pending.current.kind,pending.current.id)
+  },[id,kind,play])
+  return {ready,unlock,preview:(type:Kind)=>play(type,id&&type===kind?id:undefined)}
 }

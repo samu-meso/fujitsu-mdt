@@ -18,12 +18,48 @@ async function prepare(page,live={members:[],writes:[],deletes:0}){
     const access_token=`${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:userId,role:'authenticated',exp:Math.floor(now/1000)+3600})}.test`
     return route.fulfill({json:{access_token,token_type:'bearer',expires_in:3600,expires_at:Math.floor(now/1000)+3600,refresh_token:'test-refresh',user}})
   })
+  await page.routeWebSocket('**/realtime/v1/websocket**',socket=>{
+    if(!live.realtime)return socket.close()
+    socket.onMessage(raw=>{
+      const value=JSON.parse(String(raw)),array=Array.isArray(value)
+      const msg=array?{join_ref:value[0],ref:value[1],topic:value[2],event:value[3],payload:value[4]}:value
+      const reply=payload=>socket.send(JSON.stringify(array?[msg.join_ref,msg.ref,msg.topic,'phx_reply',payload]:{...msg,event:'phx_reply',payload}))
+      if(msg.event==='phx_join'){
+        const bindings=msg.payload.config.postgres_changes.map((binding,index)=>({...binding,id:index+1}))
+        reply({status:'ok',response:{postgres_changes:bindings}})
+        live.pushRealtime=record=>{
+          const payload={ids:[1],data:{schema:'public',table:'portal_alerts',type:'INSERT',commit_timestamp:new Date().toISOString(),columns:[],record,old_record:{},errors:null}}
+          socket.send(JSON.stringify(array?[msg.join_ref,null,msg.topic,'postgres_changes',payload]:{join_ref:msg.join_ref,ref:null,topic:msg.topic,event:'postgres_changes',payload}))
+        }
+      }else reply({status:'ok',response:{}})
+    })
+  })
   await page.route('**/rest/v1/**',route=>{
     const url=new URL(route.request().url()),table=url.pathname.split('/').at(-1)
     if(table==='live_locations'){
       if(route.request().method()==='POST'){live.writes.push(route.request().postDataJSON());return route.fulfill({status:201,body:''})}
       if(route.request().method()==='DELETE'){live.deletes++;return route.fulfill({status:204,body:''})}
       return route.fulfill({json:live.members})
+    }
+    if(table==='portal_sessions'){
+      if(route.request().method()==='POST'){(live.sessionWrites??=[]).push(route.request().postDataJSON());return route.fulfill({status:201,body:''})}
+      if(route.request().method()==='DELETE'){live.sessionDeletes=(live.sessionDeletes||0)+1;return route.fulfill({status:204,body:''})}
+      return route.fulfill({json:live.portalMembers||[]})
+    }
+    if(table==='portal_alerts'){
+      if(route.request().method()==='POST'){
+        const body=route.request().postDataJSON()
+        if(!(live.portalMembers||[]).some(member=>member.user_id===body.recipient_id))return route.fulfill({status:403,json:{message:'Destinatario offline'}})
+        ;(live.sentAlerts??=[]).push(body)
+        return route.fulfill({status:201,body:''})
+      }
+      if(route.request().method()==='PATCH'){
+        const id=url.searchParams.get('id')?.slice(3)
+        ;(live.acknowledgements??=[]).push(id)
+        for(const alert of live.inbox||[])if(alert.id===id)alert.read_at=new Date().toISOString()
+        return route.fulfill({status:204,body:''})
+      }
+      return route.fulfill({json:(live.inbox||[]).filter(alert=>!alert.read_at)})
     }
     const data=table==='profiles'?(url.searchParams.has('id')?profile:[profile]):table==='reports'?reports:table==='report_types'?[{id:'radio',name:'Scansione frequenze',color:'#548bfb',icon:'radio',active:true},{id:'emergency',name:'Emergenza',color:'#ef6464',icon:'triangle',active:true}]:[]
     return route.fulfill({json:data})
@@ -283,4 +319,69 @@ test('localita nella lista mobile e coordinate di riserva per indirizzi vuoti',a
   await expect(page.locator('.report-locality').filter({hasText:'Via della Canalina'})).toBeVisible()
   await expect(page.locator('.report-locality').filter({hasText:'44.69800, 10.63000'})).toBeVisible()
   await page.screenshot({path:'test-results/reports-locality-mobile.png',fullPage:true})
+})
+
+test('alert a membri online senza GPS, invio e ricezione sopra un altro dialog',async({page})=>{
+  const peer='55555555-5555-4555-8555-555555555555'
+  const member={user_id:peer,updated_at:new Date().toISOString(),profiles:{username:'Membro online'}}
+  const live={members:[],writes:[],deletes:0,portalMembers:[member,{...member}],inbox:[]}
+  await prepare(page,live)
+  await expect(page.locator('.portal-alert-button i')).toHaveText('1')
+  await expect(page.locator('.user-location-marker')).toHaveCount(0)
+  await page.locator('.portal-alert-button').click()
+  await page.getByLabel('Destinatario alert').selectOption(peer)
+  await page.getByLabel('Messaggio alert').fill('  Emergenza in zona HQ  ')
+  await page.getByRole('button',{name:'Invia alert',exact:true}).click()
+  await expect(page.locator('.alert-success')).toContainText('Alert inviato')
+  expect(live.sentAlerts).toEqual([{sender_id:userId,recipient_id:peer,kind:'emergency',message:'Emergenza in zona HQ'}])
+  await page.getByRole('button',{name:'Chiudi alert',exact:true}).click()
+  await page.getByRole('button',{name:'Nuova segnalazione',exact:true}).click()
+  live.inbox.push({id:'77777777-7777-4777-8777-777777777777',sender_id:peer,recipient_id:userId,kind:'emergency',message:'Serve supporto immediato',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
+  await expect(page.locator('.received-alert-message')).toHaveText('Serve supporto immediato')
+  await page.screenshot({path:'test-results/portal-alert.png',fullPage:true})
+  await page.getByRole('button',{name:'Ho letto',exact:true}).click()
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).not.toBeVisible()
+  expect(live.acknowledgements).toContain('77777777-7777-4777-8777-777777777777')
+  await expect(page.getByRole('dialog',{name:'Dettagli segnalazione'})).toBeVisible()
+})
+
+test('un alert non viene inviato se il destinatario si disconnette',async({page})=>{
+  const peer='55555555-5555-4555-8555-555555555555'
+  const live={members:[],writes:[],deletes:0,portalMembers:[{user_id:peer,updated_at:new Date().toISOString(),profiles:{username:'Membro online'}}]}
+  await prepare(page,live)
+  await page.locator('.portal-alert-button').click()
+  await page.getByLabel('Destinatario alert').selectOption(peer)
+  await page.getByLabel('Messaggio alert').fill('Richiesta di supporto')
+  live.portalMembers=[]
+  await page.getByRole('button',{name:'Invia alert',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('destinatario potrebbe non essere più online')
+  expect(live.sentAlerts||[]).toHaveLength(0)
+})
+
+test('Realtime apre immediatamente un alert prima del controllo periodico',async({page})=>{
+  await page.clock.install()
+  const live={members:[],writes:[],deletes:0,inbox:[],realtime:true}
+  await prepare(page,live)
+  await expect.poll(()=>typeof live.pushRealtime).toBe('function')
+  const alert={id:'88888888-8888-4888-8888-888888888888',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'info',message:'Avviso via Realtime',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}}
+  live.inbox.push(alert)
+  live.pushRealtime(alert)
+  // The page clock is frozen: no 2-second polling tick can deliver this alert.
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
+  await expect(page.locator('.received-alert-message')).toHaveText('Avviso via Realtime')
+})
+
+test('alert leggibile su mobile e avvisi non confermati recuperati alla riapertura',async({page})=>{
+  await page.setViewportSize({width:390,height:844})
+  const live={members:[],writes:[],deletes:0,inbox:[]}
+  await prepare(page,live)
+  await expect(page.locator('.portal-alert-button')).toBeVisible()
+  live.inbox.push({id:'99999999-9999-4999-8999-999999999999',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'info',message:'Avviso da confermare',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
+  await expect(page.locator('.received-alert-message')).toHaveText('Avviso da confermare')
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+  await page.screenshot({path:'test-results/portal-alert-mobile.png',fullPage:true})
 })

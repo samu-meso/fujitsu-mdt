@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { Data, Kind, Report, User } from './types'
 import { api, date, setCsrf } from './api'
 import Map from './Map'
+import PortalAlerts from './PortalAlerts'
 import {useActivePings} from './useActivePings'
 import Detail from './Detail'
 import './App.css'
@@ -43,6 +44,7 @@ export default function App() {
     <header className="simple-header">
       <button className="simple-brand" onClick={()=>navigate('Mappa')}><Radio size={23}/>RadioLog</button>
       <nav aria-label="Navigazione principale">{navigation.map(({label,icon:Icon})=><button key={label} className={page===label?'active':''} onClick={()=>navigate(label)}><Icon size={17}/>{label}</button>)}</nav>
+      <PortalAlerts userId={user.id}/>
       <div className="account-menu"><button className="account-toggle" aria-label="Menu account" aria-expanded={menu} onClick={()=>setMenu(!menu)}><UserRound size={18}/><span>{user.username}</span><ChevronDown size={14}/></button>{menu&&<div className="account-dropdown"><button onClick={()=>navigate('Profilo')}>Profilo</button>{user.role==='admin'&&<button onClick={()=>navigate('Utenti')}>Utenti</button>}<button onClick={async()=>{try{await api('/logout',{method:'POST'});setUser(null);setData(emptyData);setDetail(null);setMenu(false)}catch(e){setError((e as Error).message)}}}><LogOut size={15}/>Esci dall’account</button></div>}</div>
     </header>
     <main><div className="page-heading"><div><h1>{page}</h1><p>{page==='Mappa'?'Reggio Emilia e provincia':page==='Fascicoli'?'I documenti del gruppo':page==='Segnalazioni'?'Le osservazioni salvate':page==='Utenti'?'Gestisci gli accessi':'Il tuo account'}</p></div>{!['Profilo','Utenti'].includes(page)&&<button className="button primary" onClick={()=>open(page==='Fascicoli'?'dossiers':'reports')}><Plus size={17}/>{page==='Fascicoli'?'Nuovo fascicolo':'Nuova segnalazione'}</button>}</div>

@@ -13,6 +13,12 @@ Applicazione privata e minimale per un piccolo gruppo di radioamatori: mappa Lea
 
 Dettagli e decisioni di sicurezza sono in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Alert nel portale
+
+Il pulsante **Alert** elenca gli altri membri online e permette di inviare un'emergenza o un avviso con un messaggio. Funziona in tutte le pagine e senza GPS. Online significa avere il portale visibile; ogni scheda ha una sessione distinta, aggiornata ogni 10 secondi, che scade dopo 45 secondi se disconnessa. Nascondere o chiudere la pagina rimuove quella sessione.
+
+Gli alert arrivano tramite Supabase Realtime e aprono una finestra sopra la pagina, anche se sono aperti i dettagli di una segnalazione. **Ho letto** conferma la lettura; gli alert non confermati vengono ripresentati alla riapertura. Un controllo ogni 2 secondi recupera eventuali eventi persi durante una riconnessione. Non sono notifiche push quando l'app è chiusa. Solo mittente e destinatario possono leggere il messaggio. Applicare [20260916000400_portal_alerts.sql](supabase/migrations/20260916000400_portal_alerts.sql).
+
 ## Funzioni della mappa
 
 **HQ** diventa verde quando ci sono membri con GPS condiviso entro 100 metri. Il marker e la barra mostrano il numero; il popup elenca i nomi. Il conteggio include la propria posizione quando condivisa e segue gli aggiornamenti e la scadenza delle posizioni online.

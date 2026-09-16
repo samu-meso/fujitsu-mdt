@@ -302,6 +302,11 @@ test('HQ conta i membri nel raggio e aggiorna colore per movimento e stop GPS',a
   await page.getByRole('button',{name:'La mia posizione',exact:true}).click()
   await page.evaluate(()=>window.__geoSet(44.6907536,10.6510969))
   await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 2')
+  await expect(page.locator('.hq-presence')).toContainText('entro 25 m')
+  await page.evaluate(()=>window.__geoSet(44.69096,10.6510969))
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 2')
+  await page.evaluate(()=>window.__geoSet(44.691,10.6510969))
+  await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
   await page.evaluate(()=>window.__geoSet(44.6911,10.6510969))
   await expect(page.locator('.hq-presence')).toContainText('Membri attivi: 1')
   live.members=[]
@@ -423,4 +428,39 @@ test('geocodifica non disponibile permette comunque di salvare una segnalazione'
   await page.getByRole('button',{name:'Salva segnalazione',exact:true}).click()
   await expect(page.getByRole('alert')).toContainText('Salvataggio simulato')
   expect(saved).toMatchObject({title:'Segnalazione urgente',address:'',latitude:44.698,longitude:10.632})
+})
+
+test('suoni distinti per avviso ed emergenza e nessuna ripetizione a ogni polling',async({page})=>{
+  await page.clock.install()
+  await page.addInitScript(()=>{
+    window.__tones=[]
+    window.AudioContext=class{
+      state='suspended';currentTime=0;destination={}
+      resume(){this.state='running';return Promise.resolve()}
+      close(){this.state='closed';return Promise.resolve()}
+      createOscillator(){return {frequency:{setValueAtTime:value=>window.__tones.push(value)},connect(){},disconnect(){},start(){},stop(){}}}
+      createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}
+    }
+  })
+  const live={members:[],writes:[],deletes:0,inbox:[]}
+  await prepare(page,live)
+  await page.locator('.portal-alert-button').click()
+  await page.getByRole('button',{name:'Prova suono avviso'}).click()
+  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([740,990])
+  await page.evaluate(()=>window.__tones=[])
+  await page.getByRole('button',{name:'Prova suono emergenza'}).click()
+  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([880,660,880,660,880,660])
+  await page.getByRole('button',{name:'Chiudi alert',exact:true}).click()
+  await page.evaluate(()=>window.__tones=[])
+  live.inbox.push({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'info',message:'Avviso sonoro',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
+  await page.clock.fastForward(2000)
+  await expect(page.getByRole('dialog',{name:'Alert ricevuto'})).toBeVisible()
+  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([740,990])
+  await page.clock.fastForward(6000)
+  expect(await page.evaluate(()=>window.__tones)).toEqual([740,990])
+  await page.getByRole('button',{name:'Ho letto',exact:true}).click()
+  await page.evaluate(()=>window.__tones=[])
+  live.inbox.push({id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',sender_id:'55555555-5555-4555-8555-555555555555',recipient_id:userId,kind:'emergency',message:'Emergenza sonora',created_at:new Date().toISOString(),read_at:null,profiles:{username:'Membro online'}})
+  await page.clock.fastForward(2000)
+  await expect.poll(()=>page.evaluate(()=>window.__tones)).toEqual([880,660,880,660,880,660])
 })

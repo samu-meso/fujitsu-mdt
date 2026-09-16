@@ -12,6 +12,8 @@ import {useLiveLocation} from './useLiveLocation'
 import {mapZones} from './mapZones'
 import {useSharedLocations} from './useSharedLocations'
 
+const HQ_RADIUS_METERS=25
+
 function resetCity(instance:L.Map){
   instance.fitBounds(emergencyBases.map(base=>[base.latitude,base.longitude] as L.LatLngTuple),{padding:[36,70],maxZoom:13})
 }
@@ -30,7 +32,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
   const {enabled,location,error,start,stop}=useLiveLocation()
   const {members,sharing,error:sharingError}=useSharedLocations(userId,enabled&&!error,location)
   const hq=emergencyBases.find(base=>base.category==='hq')!
-  const atHQ=(point:{latitude:number;longitude:number})=>L.latLng(hq.latitude,hq.longitude).distanceTo(L.latLng(point.latitude,point.longitude))<=25
+  const atHQ=(point:{latitude:number;longitude:number})=>L.latLng(hq.latitude,hq.longitude).distanceTo(L.latLng(point.latitude,point.longitude))<=HQ_RADIUS_METERS
   const hqMembers=members.filter(atHQ)
   const hqCount=hqMembers.length+(sharing&&location&&atHQ(location)?1:0)
   const hqMemberNames=hqMembers.map(member=>member.profiles.username).concat(sharing&&location&&atHQ(location)?['Tu']:[]).join(', ')
@@ -101,8 +103,8 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       const address=document.createElement('p');address.textContent=`${base.address}, Reggio Emilia`
       popup.append(title,address)
       if(base.category==='hq'){
-        const presence=document.createElement('p');presence.className='hq-popup-presence';presence.textContent=`Membri attivi: ${hqCount} · entro 25 m${hqMemberNames?` · ${hqMemberNames}`:''}`;popup.append(presence)
-        L.circle([base.latitude,base.longitude],{radius:25,color:hqCount?'#73d5ab':'#79c5ff',weight:1,dashArray:'4 4',fillOpacity:0.08,interactive:false,className:'hq-radius'}).addTo(baseLayer.current!)
+        const presence=document.createElement('p');presence.className='hq-popup-presence';presence.textContent=`Membri attivi: ${hqCount} · entro ${HQ_RADIUS_METERS} m${hqMemberNames?` · ${hqMemberNames}`:''}`;popup.append(presence)
+        L.circle([base.latitude,base.longitude],{radius:HQ_RADIUS_METERS,color:hqCount?'#73d5ab':'#79c5ff',weight:1,dashArray:'4 4',fillOpacity:0.08,interactive:false,className:'hq-radius'}).addTo(baseLayer.current!)
       }
       if(base.details){const details=document.createElement('small');details.textContent=base.details;popup.append(details)}
       const links=document.createElement('div');links.className='base-popup-links'
@@ -158,7 +160,7 @@ export default function Map({userId,reports,types,onSelect,onCreate,large=false}
       <span className="location-status" role="status">{location?`GPS attivo · ±${Math.round(location.accuracy)} m`:enabled?'Ricerca posizione…':'Attiva il GPS per condividere la posizione'}</span>
     </div>
     <span className="sharing-status" role="status">{sharing?'Posizione condivisa con il portale':enabled?'Condivisione in attesa del GPS':'Posizione non condivisa'} · {members.length} {members.length===1?'altro utente visibile':'altri utenti visibili'}</span>
-    <div className={`hq-presence ${hqCount?'active':''}`} role="status"><span className="hq-presence-dot"/><strong>HQ · Membri attivi: {hqCount}</strong><span>entro 25 m</span></div>
+    <div className={`hq-presence ${hqCount?'active':''}`} role="status"><span className="hq-presence-dot"/><strong>HQ · Membri attivi: {hqCount}</strong><span>entro {HQ_RADIUS_METERS} m</span></div>
     {selectedMember&&<div className="user-distance" role="status"><span><strong>{selectedMember.profiles.username}</strong> · {distance!==null?<>Distanza in linea d’aria: <strong>{distanceText}</strong></>:error?'GPS non disponibile':enabled?'In attesa della tua posizione…':'Attiva la tua posizione per calcolare la distanza'}</span><button className="button secondary" onClick={()=>setSelectedUserId(null)}>Chiudi</button></div>}
     {sharingError&&<p className="location-error" role="alert">{sharingError}</p>}
     {error&&<p className="location-error" role="alert">{error}</p>}
